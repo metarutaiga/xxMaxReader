@@ -1,0 +1,3 @@
+[submodule "compoundfilereader"]
+	path = compoundfilereader
+	url = https://github.com/microsoft/compoundfilereader
