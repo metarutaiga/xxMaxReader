@@ -59,7 +59,10 @@ static bool BlockFinder(xxMaxNode::Block& block, std::function<void(uint16_t typ
         ImGui::PopID();
         if (ImGui::IsItemHovered())
         {
-            ImGui::SetTooltip("Index:%zd\nType:%04X\nName:%s", i, type, name.c_str());
+            ImGui::SetTooltip("Index:%zd\n"
+                              "Type:%04X\n"
+                              "Name:%s",
+                              i, type, name.c_str());
 
             if (ImGui::IsItemClicked() && selected != &type)
             {
@@ -108,7 +111,11 @@ static bool BlockFinder(xxMaxNode::Block& block, std::function<void(uint16_t typ
         ImGui::PopID();
         if (ImGui::IsItemHovered())
         {
-            ImGui::SetTooltip("Index:%zd\nType:%04X\nName:%s\nSize:%zd", i, type, name.c_str(), property.size());
+            ImGui::SetTooltip("Index:%zd\n"
+                              "Type:%04X\n"
+                              "Name:%s\n"
+                              "Size:%zd",
+                              i, type, name.c_str(), property.size());
 
             if (ImGui::IsItemClicked() && selected != &type)
             {
@@ -152,7 +159,14 @@ static bool NodeFinder(xxMaxNode& node)
         ImGui::PopID();
         if (ImGui::IsItemHovered())
         {
-            ImGui::SetTooltip("Name:%s", child.name.c_str());
+            ImGui::SetTooltip("Name:%s\n"
+                              "Position:%g, %g, %g\n"
+                              "Rotation:%g, %g, %g\n"
+                              "Scale:%g, %g, %g\n",
+                              child.name.c_str(),
+                              child.position[0], child.position[1], child.position[2],
+                              child.rotation[0], child.rotation[1], child.rotation[2],
+                              child.scale[0], child.scale[1], child.scale[2]);
 
             if (ImGui::IsItemClicked() && selected != &child)
             {
@@ -201,7 +215,7 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
         return false;
 
     bool updated = false;
-    ImGui::SetNextWindowSize(ImVec2(1200.0f, 720.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(1280.0f, 768.0f), ImGuiCond_Appearing);
     if (ImGui::Begin("Max Reader", &show, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking))
     {
         ImGui::InputTextEx("PATH", nullptr, path);
@@ -306,6 +320,7 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
         }
         ImGui::Columns(1);
 
+        ImGui::Separator();
         if (ImGui::BeginChild("NodeFinder", ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 16)))
         {
             if (root)
@@ -315,6 +330,7 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
             ImGui::EndChild();
         }
 
+        ImGui::Separator();
         ImGui::InputTextMultiline("INFO", info, ImVec2(0, 0), ImGuiInputTextFlags_ReadOnly);
     }
     ImGui::End();
