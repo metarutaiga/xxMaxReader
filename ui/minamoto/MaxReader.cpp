@@ -25,12 +25,12 @@ static ImGuiFileDialog* fileDialog;
 //------------------------------------------------------------------------------
 static xxMaxNode* root;
 //------------------------------------------------------------------------------
-static bool BlockFinder(xxMaxNode::Block& block, std::function<void(uint16_t type, std::vector<char> const& property)> select)
+static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t type, std::vector<char> const& property)> select)
 {
     static void* selected;
     bool updated = false;
 
-    // Children
+    // Chunk
     if (selected)
     {
         ssize_t delta = 0;
@@ -38,35 +38,46 @@ static bool BlockFinder(xxMaxNode::Block& block, std::function<void(uint16_t typ
         if (ImGui::IsKeyReleased(ImGuiKey_DownArrow)) delta = 1;
         if (delta != 0)
         {
-            size_t index = std::distance(&block.front(), (xxMaxNode::Block::value_type*)selected) + delta;
-            if (index < block.size())
+            size_t index = std::distance(chunk.data(), (xxMaxNode::Chunk::value_type*)selected) + delta;
+            if (index < chunk.size())
             {
-                auto& [type, _2, flags, child] = block[index];
-                selected = &type;
+                selected = chunk.data() + index;
                 updated = true;
             }
         }
     }
-    for (size_t i = 0; i < block.size(); ++i)
+    for (size_t i = 0; i < chunk.size(); ++i)
     {
-        auto& [type, name, child, flags] = block[i];
+        auto& child = chunk[i];
+        auto& flags = child.padding;
 
         char text[128];
-        snprintf(text, 128, "%s%zd:%s", (flags & 1) ? ICON_FA_CIRCLE_O : ICON_FA_CIRCLE, i, name.c_str());
+        snprintf(text, 128, "%s%zd:%s", (flags & 1) ? ICON_FA_CIRCLE_O : ICON_FA_CIRCLE, i, child.name.c_str());
 
-        ImGui::PushID(&type);
-        ImGui::Selectable(text, selected == &type);
+        ImGui::PushID(&child);
+        ImGui::Selectable(text, selected == &child);
         ImGui::PopID();
         if (ImGui::IsItemHovered())
         {
-            ImGui::SetTooltip("Index:%zd\n"
-                              "Type:%04X\n"
-                              "Name:%s",
-                              i, type, name.c_str());
-
-            if (ImGui::IsItemClicked() && selected != &type)
+            if (child.classDllName.empty() == false)
             {
-                selected = &type;
+                ImGui::SetTooltip("Index:%zd\n"
+                                  "Type:%04X\n"
+                                  "Class:%08X-%08X-%08X-%08X\n"
+                                  "DllFile:%s\n"
+                                  "DllName:%s\n"
+                                  "Name:%s",
+                                  i,
+                                  child.type,
+                                  child.classData.dllIndex, child.classData.classID.first, child.classData.classID.second, child.classData.superClassID,
+                                  child.classDllFile.c_str(),
+                                  child.classDllName.c_str(),
+                                  child.name.c_str());
+            }
+
+            if (ImGui::IsItemClicked() && selected != &child)
+            {
+                selected = &child;
             }
             if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
             {
@@ -76,7 +87,7 @@ static bool BlockFinder(xxMaxNode::Block& block, std::function<void(uint16_t typ
         if (flags & 1)
         {
             ImGui::Indent();
-            updated |= BlockFinder(child, select);
+            updated |= ChunkFinder(child, select);
             ImGui::Unindent();
         }
     }
@@ -89,38 +100,50 @@ static bool BlockFinder(xxMaxNode::Block& block, std::function<void(uint16_t typ
         if (ImGui::IsKeyReleased(ImGuiKey_DownArrow)) delta = 1;
         if (delta != 0)
         {
-            size_t index = std::distance(&block.properties.front(), (xxMaxNode::Block::Properties::value_type*)selected) + delta;
-            if (index < block.properties.size())
+            size_t index = std::distance(chunk.properties.data(), (xxMaxNode::Chunk::Properties::value_type*)selected) + delta;
+            if (index < chunk.properties.size())
             {
-                auto& [type, _2, child] = block.properties[index];
-                selected = &type;
-                select(type, child);
+                auto& property = chunk.properties[index];
+                selected = chunk.properties.data() + index;
+                select(property.type, property);
                 updated = true;
             }
         }
     }
-    for (size_t i = 0; i < block.properties.size(); ++i)
+    for (size_t i = 0; i < chunk.properties.size(); ++i)
     {
-        auto& [type, name, property] = block.properties[i];
+        auto& property = chunk.properties[i];
 
         char text[128];
-        snprintf(text, 128, "%s%zd:%s", ICON_FA_FILE_TEXT, i, name.c_str());
+        snprintf(text, 128, "%s%zd:%s", ICON_FA_FILE_TEXT, i, property.name.c_str());
 
-        ImGui::PushID(&type);
-        ImGui::Selectable(text, selected == &type);
+        ImGui::PushID(&property);
+        ImGui::Selectable(text, selected == &property);
         ImGui::PopID();
         if (ImGui::IsItemHovered())
         {
-            ImGui::SetTooltip("Index:%zd\n"
-                              "Type:%04X\n"
-                              "Name:%s\n"
-                              "Size:%zd",
-                              i, type, name.c_str(), property.size());
-
-            if (ImGui::IsItemClicked() && selected != &type)
+            if (property.classDllName.empty() == false)
             {
-                selected = &type;
-                select(type, property);
+                ImGui::SetTooltip("Index:%zd\n"
+                                  "Type:%04X\n"
+                                  "Class:%08X-%08X-%08X-%08X\n"
+                                  "DllFile:%s\n"
+                                  "DllName:%s\n"
+                                  "Name:%s\n"
+                                  "Size:%zd",
+                                  i,
+                                  property.type,
+                                  property.classData.dllIndex, property.classData.classID.first, property.classData.classID.second, property.classData.superClassID,
+                                  property.classDllFile.c_str(),
+                                  property.classDllName.c_str(),
+                                  property.name.c_str(),
+                                  property.size());
+            }
+
+            if (ImGui::IsItemClicked() && selected != &property)
+            {
+                selected = &property;
+                select(property.type, property);
             }
         }
     }
@@ -133,26 +156,42 @@ static bool NodeFinder(xxMaxNode& node)
     static void* selected;
     bool updated = false;
 
-    // Children
     if (selected)
     {
-        //ssize_t delta = 0;
-        //if (ImGui::IsKeyReleased(ImGuiKey_UpArrow)) delta = -1;
-        //if (ImGui::IsKeyReleased(ImGuiKey_DownArrow)) delta = 1;
-        //if (delta != 0)
-        //{
-        //    size_t index = std::distance(&node.front(), (xxMaxNode::value_type*)selected) + delta;
-        //    if (index < node.size())
-        //    {
-        //        selected = &(node.begin() + index);
-        //        updated = true;
-        //    }
-        //}
+        ssize_t delta = 0;
+        if (ImGui::IsKeyReleased(ImGuiKey_UpArrow)) delta = -1;
+        if (ImGui::IsKeyReleased(ImGuiKey_DownArrow)) delta = 1;
+        if (delta != 0)
+        {
+            for (auto it = node.begin(); it != node.end(); ++it)
+            {
+                if (&(*it) != selected)
+                    continue;
+                auto previous = it;
+                if (previous != node.begin())
+                    previous--;
+                if (delta < 0)
+                {
+                    selected = &(*previous);
+                    updated = true;
+                    break;
+                }
+                auto next = it;
+                if (next != node.end())
+                    next++;
+                if (next != node.end())
+                {
+                    selected = &(*next);
+                    updated = true;
+                    break;
+                }
+            }
+        }
     }
     for (auto& child : node)
     {
         char text[128];
-        snprintf(text, 128, "%s%s", child.dummy ? ICON_FA_CIRCLE_O : ICON_FA_CIRCLE, child.name.c_str());
+        snprintf(text, 128, "%s%s", child.padding ? ICON_FA_CIRCLE_O : ICON_FA_CIRCLE, child.name.c_str());
 
         ImGui::PushID(&child);
         ImGui::Selectable(text, selected == &child);
@@ -174,10 +213,10 @@ static bool NodeFinder(xxMaxNode& node)
             }
             if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
             {
-                child.dummy = !child.dummy;
+                child.padding = !child.padding;
             }
         }
-        if (child.dummy)
+        if (child.padding)
         {
             ImGui::Indent();
             updated |= NodeFinder(child);
@@ -249,23 +288,23 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
         ImGui::EndTabBar();
 
         ImGui::Columns(2);
-        if (ImGui::BeginChild("BlockFinder", ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 16)))
+        if (ImGui::BeginChild("ChunkFinder", ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 16)))
         {
             if (root)
             {
-                xxMaxNode::Block* block = nullptr;
+                xxMaxNode::Chunk* chunk = nullptr;
                 switch (tabIndex)
                 {
-                    case 0: block = root->classData;        break;
-                    case 1: block = root->classDirectory;   break;
-                    case 2: block = root->config;           break;
-                    case 3: block = root->dllDirectory;     break;
-                    case 4: block = root->scene;            break;
-                    case 5: block = root->videoPostQueue;   break;
+                    case 0: chunk = root->classData;        break;
+                    case 1: chunk = root->classDirectory;   break;
+                    case 2: chunk = root->config;           break;
+                    case 3: chunk = root->dllDirectory;     break;
+                    case 4: chunk = root->scene;            break;
+                    case 5: chunk = root->videoPostQueue;   break;
                 }
-                if (block)
+                if (chunk)
                 {
-                    updated |= BlockFinder(*block, [](uint16_t type, std::vector<char> const& data)
+                    updated |= ChunkFinder(*chunk, [](uint16_t type, std::vector<char> const& data)
                     {
                         fileContent = data;
                         fileContentIndex = 0;

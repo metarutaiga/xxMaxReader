@@ -8,7 +8,6 @@
 
 #include <list>
 #include <string>
-#include <tuple>
 #include <vector>
 
 struct xxMaxNode : public std::list<xxMaxNode>
@@ -16,23 +15,50 @@ struct xxMaxNode : public std::list<xxMaxNode>
     std::string name;
 
     float position[3] = { 0, 0, 0 };
-    float rotation[3] = { 0, 0, 1 };
+    float rotation[3] = { 0, 0, 0 };
     float scale[3] = { 1, 1, 1 };
 
-    bool dummy = false;
+    uint16_t padding = 0;
 
 public:
-    struct Block : public std::vector<std::tuple<uint16_t, std::string, Block, uint16_t>>
+    typedef std::pair<uint32_t, uint32_t> ClassID;
+    typedef uint32_t SuperClassID;
+
+    struct ClassData
     {
-        typedef std::vector<std::tuple<uint16_t, std::string, std::vector<char>>> Properties;
+        uint32_t dllIndex;
+        ClassID classID;
+        SuperClassID superClassID;
+    };
+
+public:
+    struct Chunk : public std::vector<Chunk>
+    {
+        uint16_t type = 0;
+        uint16_t padding = 0;
+        ClassData classData = {};
+        std::string classDllFile;
+        std::string classDllName;
+        std::string name;
+
+        struct Property : public std::vector<char>
+        {
+            uint16_t type = 0;
+            uint16_t padding = 0;
+            ClassData classData = {};
+            std::string classDllFile;
+            std::string classDllName;
+            std::string name;
+        };
+        typedef std::vector<Property> Properties;
         Properties properties;
     };
-    Block* classData = nullptr;
-    Block* classDirectory = nullptr;
-    Block* config = nullptr;
-    Block* dllDirectory = nullptr;
-    Block* scene = nullptr;
-    Block* videoPostQueue = nullptr;
+    Chunk* classData = nullptr;
+    Chunk* classDirectory = nullptr;
+    Chunk* config = nullptr;
+    Chunk* dllDirectory = nullptr;
+    Chunk* scene = nullptr;
+    Chunk* videoPostQueue = nullptr;
 
     ~xxMaxNode()
     {
