@@ -22,6 +22,7 @@
 
 #define PRS_CONTROL_CLASS_ID            xxMaxNode::ClassID{0x00002005, 0x00000000}
 #define HYBRIDINTERP_FLOAT_CLASS_ID     xxMaxNode::ClassID{0x00002007, 0x00000000}
+#define HYBRIDINTERP_SCALE_CLASS_ID     xxMaxNode::ClassID{0x00002010, 0x00000000}
 #define HYBRIDINTERP_POINT4_CLASS_ID    xxMaxNode::ClassID{0x00002012, 0x00000000}
 
 #define IPOS_CONTROL_CLASS_ID           xxMaxNode::ClassID{0x118f7e02, 0xffee238a}
@@ -63,22 +64,18 @@ static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* e
         char const* next = (header + length);
         if (next > end)
             break;
+        xxMaxNode::Chunk child;
+        child.type = type;
+        child.name = std::format("{:04X}", type);
         if (children)
         {
-            xxMaxNode::Chunk child;
-            child.type = type;
-            child.name = std::format("{:04X}", type);
             parseChunk(child, begin, next);
-            chunk.emplace_back(std::move(child));
         }
         else
         {
-            xxMaxNode::Chunk::Property property;
-            property.type = type;
-            property.name = std::format("{:04X}", type);
-            property.assign(begin, next);
-            chunk.properties.emplace_back(std::move(property));
+            child.property.assign(begin, next);
         }
+        chunk.emplace_back(std::move(child));
         begin = next;
     }
 }
@@ -102,15 +99,9 @@ static std::vector<T> getProperty(xxMaxNode::Chunk const& chunk, Args&&... args)
     std::vector<uint16_t> typeArray;
     (typeArray.emplace_back(args), ...);
 
-    std::vector<uint16_t> chunkArray = typeArray;
-    if (chunkArray.empty() == false)
-        chunkArray.pop_back();
-
-    xxMaxNode::Chunk const* found = getTypeChunk(chunk, chunkArray);
+    xxMaxNode::Chunk const* found = getTypeChunk(chunk, typeArray);
     if (found)
-        for (auto const& property : (*found).properties)
-            if (property.type == typeArray.back())
-                return std::vector<T>((T*)property.data(), (T*)property.data() + property.size() / sizeof(T));
+        return std::vector<T>((T*)found->property.data(), (T*)found->property.data() + found->property.size() / sizeof(T));
 
     return std::vector<T>();
 }
@@ -285,21 +276,6 @@ xxMaxNode* xxMaxReader(char const* name)
         chunk.classDllFile = dllFile;
         chunk.classDllName = dllName;
     }
-    for (uint32_t i = 0; i < scene.properties.size(); ++i)
-    {
-        auto& property = scene.properties[i];
-        auto [className, classData] = getClass(*root->classDirectory, property.type);
-        if (className.empty())
-        {
-            printf("Class %d is not found! (Property:%d)\n", property.type, i);
-            continue;
-        }
-        auto [dllFile, dllName] = getDll(*root->dllDirectory, classData.dllIndex);
-        property.name = className;
-        property.classData = classData;
-        property.classDllFile = dllFile;
-        property.classDllName = dllName;
-    }
 
     // Second Pass
     std::map<uint32_t, xxMaxNode*> nodes;
@@ -363,7 +339,7 @@ xxMaxNode* xxMaxReader(char const* name)
                     break;
 
                 // Position XYZ
-                // 00000005-118F7E02-FFEE238A-0000900B
+                // ????????-118F7E02-FFEE238A-0000900B
                 // IPOS_CONTROL_CLASS_ID + POSITION_SUPERCLASS_ID
                 for (uint32_t i = 0; i < 3; ++i)
                 {
@@ -376,7 +352,7 @@ xxMaxNode* xxMaxReader(char const* name)
                     node.position[i] = propertyFloat.front();
                 }
                 // Euler XYZ
-                // 00000005-00002012-00000000-0000900C
+                // ????????-00002012-00000000-0000900C
                 // HYBRIDINTERP_POINT4_CLASS_ID + ROTATION_SUPERCLASS_ID
                 for (uint32_t i = 0; i < 3; ++i)
                 {
@@ -389,8 +365,8 @@ xxMaxNode* xxMaxReader(char const* name)
                     node.rotation[i] = propertyFloat.front();
                 }
                 // Bezier Scale
-                // FFFFFFFF-00002007-00000000-00009003
-                // HYBRIDINTERP_FLOAT_CLASS_ID + FLOAT_SUPERCLASS_ID
+                // FFFFFFFF-00002010-00000000-0000900D
+                // HYBRIDINTERP_SCALE_CLASS_ID + SCALE_SUPERCLASS_ID
                 if (true)
                 {
                     xxMaxNode::Chunk const* scale = getLinkChunk(scene, *linkChunk, 2);

@@ -34,24 +34,14 @@ public:
 public:
     struct Chunk : public std::vector<Chunk>
     {
+        std::vector<char> property;
+
         uint16_t type = 0;
         uint16_t padding = 0;
         ClassData classData = {};
         std::string classDllFile;
         std::string classDllName;
         std::string name;
-
-        struct Property : public std::vector<char>
-        {
-            uint16_t type = 0;
-            uint16_t padding = 0;
-            ClassData classData = {};
-            std::string classDllFile;
-            std::string classDllName;
-            std::string name;
-        };
-        typedef std::vector<Property> Properties;
-        Properties properties;
     };
     Chunk* classData = nullptr;
     Chunk* classDirectory = nullptr;

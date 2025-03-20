@@ -34,14 +34,16 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
     if (selected)
     {
         ssize_t delta = 0;
-        if (ImGui::IsKeyReleased(ImGuiKey_UpArrow)) delta = -1;
-        if (ImGui::IsKeyReleased(ImGuiKey_DownArrow)) delta = 1;
+        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) delta = -1;
+        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) delta = 1;
         if (delta != 0)
         {
             size_t index = std::distance(chunk.data(), (xxMaxNode::Chunk::value_type*)selected) + delta;
             if (index < chunk.size())
             {
-                selected = chunk.data() + index;
+                auto& child = chunk[index];
+                select(child.type, child.property);
+                selected = &child;
                 updated = true;
             }
         }
@@ -52,7 +54,14 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
         auto& flags = child.padding;
 
         char text[128];
-        snprintf(text, 128, "%s%zd:%s", (flags & 1) ? ICON_FA_CIRCLE_O : ICON_FA_CIRCLE, i, child.name.c_str());
+        if (child.empty())
+        {
+            snprintf(text, 128, "%s%zd:%s", ICON_FA_FILE_TEXT, i, child.name.c_str());
+        }
+        else
+        {
+            snprintf(text, 128, "%s%zd:%s", (flags & 1) ? ICON_FA_CIRCLE_O : ICON_FA_CIRCLE, i, child.name.c_str());
+        }
 
         ImGui::PushID(&child);
         ImGui::Selectable(text, selected == &child);
@@ -61,90 +70,35 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
         {
             if (child.classDllName.empty() == false)
             {
-                ImGui::SetTooltip("Index:%zd\n"
-                                  "Type:%04X\n"
-                                  "Class:%08X-%08X-%08X-%08X\n"
-                                  "DllFile:%s\n"
-                                  "DllName:%s\n"
-                                  "Name:%s",
-                                  i,
-                                  child.type,
-                                  child.classData.dllIndex, child.classData.classID.first, child.classData.classID.second, child.classData.superClassID,
-                                  child.classDllFile.c_str(),
-                                  child.classDllName.c_str(),
-                                  child.name.c_str());
+                ImGui::BeginTooltip();
+                ImGui::Text("Index:%zd", i);
+                ImGui::Text("Type:%04X", child.type);
+                ImGui::Text("Class:%08X-%08X-%08X-%08X", child.classData.dllIndex, child.classData.classID.first, child.classData.classID.second, child.classData.superClassID);
+                ImGui::Text("DllFile:%s", child.classDllFile.c_str());
+                ImGui::Text("DllName:%s", child.classDllName.c_str());
+                ImGui::Text("Name:%s", child.name.c_str());
+                if (child.empty())
+                {
+                    ImGui::Text("Size:%zd", child.property.size());
+                }
+                ImGui::EndTooltip();
             }
-
             if (ImGui::IsItemClicked() && selected != &child)
             {
+                select(child.type, child.property);
                 selected = &child;
+                updated = true;
             }
             if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
             {
                 flags ^= 1;
             }
         }
-        if (flags & 1)
+        if (child.empty() == false && flags & 1)
         {
             ImGui::Indent();
             updated |= ChunkFinder(child, select);
             ImGui::Unindent();
-        }
-    }
-
-    // Property
-    if (selected)
-    {
-        ssize_t delta = 0;
-        if (ImGui::IsKeyReleased(ImGuiKey_UpArrow)) delta = -1;
-        if (ImGui::IsKeyReleased(ImGuiKey_DownArrow)) delta = 1;
-        if (delta != 0)
-        {
-            size_t index = std::distance(chunk.properties.data(), (xxMaxNode::Chunk::Properties::value_type*)selected) + delta;
-            if (index < chunk.properties.size())
-            {
-                auto& property = chunk.properties[index];
-                selected = chunk.properties.data() + index;
-                select(property.type, property);
-                updated = true;
-            }
-        }
-    }
-    for (size_t i = 0; i < chunk.properties.size(); ++i)
-    {
-        auto& property = chunk.properties[i];
-
-        char text[128];
-        snprintf(text, 128, "%s%zd:%s", ICON_FA_FILE_TEXT, i, property.name.c_str());
-
-        ImGui::PushID(&property);
-        ImGui::Selectable(text, selected == &property);
-        ImGui::PopID();
-        if (ImGui::IsItemHovered())
-        {
-            if (property.classDllName.empty() == false)
-            {
-                ImGui::SetTooltip("Index:%zd\n"
-                                  "Type:%04X\n"
-                                  "Class:%08X-%08X-%08X-%08X\n"
-                                  "DllFile:%s\n"
-                                  "DllName:%s\n"
-                                  "Name:%s\n"
-                                  "Size:%zd",
-                                  i,
-                                  property.type,
-                                  property.classData.dllIndex, property.classData.classID.first, property.classData.classID.second, property.classData.superClassID,
-                                  property.classDllFile.c_str(),
-                                  property.classDllName.c_str(),
-                                  property.name.c_str(),
-                                  property.size());
-            }
-
-            if (ImGui::IsItemClicked() && selected != &property)
-            {
-                selected = &property;
-                select(property.type, property);
-            }
         }
     }
 
