@@ -28,6 +28,7 @@
 		F5C252092D884B7C005D23CD /* MaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252072D884B7C005D23CD /* MaxReader.cpp */; };
 		F5C2520A2D884B7C005D23CD /* MaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252072D884B7C005D23CD /* MaxReader.cpp */; };
 		F5C2520B2D884B7C005D23CD /* MaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252072D884B7C005D23CD /* MaxReader.cpp */; };
+		F5C2520D2D8D179C005D23CD /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = F5C2520C2D8D179C005D23CD /* libz.tbd */; };
 		F5E5B0DE2D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; };
 		F5E5B0E72D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; };
 		F5E5B0F02D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; };
@@ -86,6 +87,7 @@
 		F5C252012D882E20005D23CD /* xxMaxReader.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = xxMaxReader.cpp; path = ../../../xxMaxReader.cpp; sourceTree = SOURCE_ROOT; };
 		F5C252062D884B7C005D23CD /* MaxReader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MaxReader.h; sourceTree = "<group>"; };
 		F5C252072D884B7C005D23CD /* MaxReader.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MaxReader.cpp; sourceTree = "<group>"; };
+		F5C2520C2D8D179C005D23CD /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
 		F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = MaxReaderEntry.cpp; path = ../MaxReaderEntry.cpp; sourceTree = SOURCE_ROOT; };
 		F5E5B18E2D6C5FEB008E0D21 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		F5E5B1902D6C5FF7008E0D21 /* imgui.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = imgui.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -128,6 +130,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F5C2520D2D8D179C005D23CD /* libz.tbd in Frameworks */,
 				F5E5B1912D6C5FF7008E0D21 /* imgui.dylib in Frameworks */,
 				F5E5B19B2D6C6261008E0D21 /* Runtime.dylib in Frameworks */,
 				F5E5B18F2D6C5FEB008E0D21 /* Metal.framework in Frameworks */,
@@ -140,6 +143,7 @@
 		300264BD24266097004559E0 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				F5C2520C2D8D179C005D23CD /* libz.tbd */,
 				F5E5B1A02D6C65C7008E0D21 /* libcxx.Windows.lib */,
 				F5E5B19E2D6C65A8008E0D21 /* Runtime.dll */,
 				F5E5B19C2D6C65A0008E0D21 /* imgui.dll */,

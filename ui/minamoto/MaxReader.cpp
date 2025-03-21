@@ -25,6 +25,24 @@ static ImGuiFileDialog* fileDialog;
 //------------------------------------------------------------------------------
 static xxMaxNode* root;
 //------------------------------------------------------------------------------
+static int MaxReaderLog(char const* format, ...)
+{
+    va_list args;
+
+    va_start(args, format);
+    size_t length = vsnprintf(nullptr, 0, format, args);
+    va_end(args);
+
+    size_t pos = info.size();
+    info.resize(info.size() + length);
+
+    va_start(args, format);
+    int result = vsnprintf(info.data() + pos, length, format, args);
+    va_end(args);
+
+    return result;
+}
+//------------------------------------------------------------------------------
 static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t type, std::vector<char> const& property)> select)
 {
     static void* selected;
@@ -337,7 +355,7 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
             root = nullptr;
 
             path = fileDialog->GetFilePathName();
-            root = xxMaxReader(path.c_str());
+            root = xxMaxReader(path.c_str(), MaxReaderLog);
         }
         fileDialog->Close();
     }

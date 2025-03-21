@@ -61,4 +61,4 @@ public:
     }
 };
 
-xxMaxNode* xxMaxReader(char const* name);
+xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...));

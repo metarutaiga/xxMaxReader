@@ -28,8 +28,51 @@
 #define IPOS_CONTROL_CLASS_ID           xxMaxNode::ClassID{0x118f7e02, 0xffee238a}
 
 #define TRY         try {
-#define CATCH(x)    } catch(...)
-#define THROW       throw
+#define CATCH(x)    } catch(x)
+#define THROW       throw std::runtime_error(__FILE_NAME__ ":" _LIBCPP_TOSTRING(__LINE__))
+
+#include <zlib.h>
+
+static std::vector<char> uncompress(std::vector<char> const& input)
+{
+    if (input.size() < 10 || input[0] != char(0x1F) || input[1] != char(0x8B))
+        return input;
+
+    z_stream stream = {};
+    stream.next_in = (Bytef*)input.data();
+    stream.avail_in = (uInt)input.size();
+    inflateInit2(&stream, MAX_WBITS | 32);
+
+    std::vector<char> output(input.size());
+    stream.next_out = (Bytef*)output.data();
+    stream.avail_out = (uint)output.size();
+    for (;;)
+    {
+        int result = inflate(&stream, Z_NO_FLUSH);
+        if (result == Z_BUF_ERROR)
+        {
+            output.push_back(0);
+            output.resize(output.capacity());
+            stream.next_out = (Bytef*)(output.data() + stream.total_out);
+            stream.avail_out = (uint)(output.size() - stream.total_out);
+            continue;
+        }
+        if (result == Z_STREAM_END)
+        {
+            output.resize(stream.total_out);
+            inflateEnd(&stream);
+            return output;
+        }
+        if (result == Z_OK)
+        {
+            continue;
+        }
+        break;
+    }
+
+    inflateEnd(&stream);
+    return input;
+}
 
 static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* end)
 {
@@ -80,10 +123,20 @@ static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* e
     }
 }
 
-static xxMaxNode::Chunk const* getTypeChunk(xxMaxNode::Chunk const& chunk, std::vector<uint16_t> typeArray)
+static bool checkClass(int(*log)(char const*, ...), xxMaxNode::Chunk const& chunk, xxMaxNode::ClassID classID, xxMaxNode::SuperClassID superClassID)
+{
+    if (chunk.classData.classID == classID && chunk.classData.superClassID == superClassID)
+        return true;
+    auto& classData = chunk.classData;
+    log("Unknown (%08X-%08X-%08X-%08X) %s", classData.dllIndex, classData.classID.first, classData.classID.second, classData.superClassID, chunk.name.c_str());
+    return false;
+}
+
+template <typename... Args>
+static xxMaxNode::Chunk const* getTypeChunk(xxMaxNode::Chunk const& chunk, Args&&... args)
 {
     xxMaxNode::Chunk const* output = &chunk;
-    for (uint16_t type : typeArray)
+    for (uint16_t type : { args... })
     {
         auto it = std::find_if(output->begin(), output->end(), [type](auto const& chunk) { return chunk.type == type; });
         if (it == output->end())
@@ -96,14 +149,10 @@ static xxMaxNode::Chunk const* getTypeChunk(xxMaxNode::Chunk const& chunk, std::
 template <typename T = char, typename... Args>
 static std::vector<T> getProperty(xxMaxNode::Chunk const& chunk, Args&&... args)
 {
-    std::vector<uint16_t> typeArray;
-    (typeArray.emplace_back(args), ...);
-
-    xxMaxNode::Chunk const* found = getTypeChunk(chunk, typeArray);
-    if (found)
-        return std::vector<T>((T*)found->property.data(), (T*)found->property.data() + found->property.size() / sizeof(T));
-
-    return std::vector<T>();
+    xxMaxNode::Chunk const* found = getTypeChunk(chunk, args...);
+    T* data = found ? (T*)found->property.data() : nullptr;
+    size_t size = found ? found->property.size() / sizeof(T) : 0;
+    return std::vector<T>(data, data + size);
 }
 
 static std::tuple<std::string, xxMaxNode::ClassData> getClass(xxMaxNode::Chunk const& classDirectory, uint16_t classIndex)
@@ -137,27 +186,19 @@ static std::map<uint32_t, uint32_t> getLink(xxMaxNode::Chunk const& chunk)
     std::map<uint32_t, uint32_t> link;
     std::vector<uint32_t> propertyLink2034 = getProperty<uint32_t>(chunk, 0x2034);
     for (uint32_t i = 0; i < propertyLink2034.size(); ++i)
-    {
         link[i] = propertyLink2034[i];
-    }
     std::vector<uint32_t> propertyLink2035 = getProperty<uint32_t>(chunk, 0x2035);
     for (uint32_t i = 1; i + 1 < propertyLink2035.size(); i += 2)
-    {
-        uint32_t index = propertyLink2035[i + 0];
-        link[index] = propertyLink2035[i + 1];
-    }
+        link[propertyLink2035[i + 0]] = propertyLink2035[i + 1];
     return link;
 }
 
 template <typename... Args>
 static xxMaxNode::Chunk const* getLinkChunk(xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, Args&&... args)
 {
-    std::vector<uint32_t> indexedLink;
-    (indexedLink.emplace_back(args), ...);
-
     xxMaxNode::Chunk const* output = &chunk;
     std::map<uint32_t, uint32_t> link = getLink(*output);
-    for (uint32_t index : indexedLink)
+    for (uint32_t index : { args... })
     {
         auto it = link.find(index);
         if (it == link.end())
@@ -171,11 +212,14 @@ static xxMaxNode::Chunk const* getLinkChunk(xxMaxNode::Chunk const& scene, xxMax
     return output;
 }
 
-xxMaxNode* xxMaxReader(char const* name)
+xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
 {
     FILE* file = fopen(name, "rb");
     if (file == nullptr)
+    {
+        log("File is not found\n", name);
         return nullptr;
+    }
 
     xxMaxNode* root = nullptr;
 
@@ -183,7 +227,10 @@ xxMaxNode* xxMaxReader(char const* name)
 
     root = new xxMaxNode;
     if (root == nullptr)
+    {
+        log("Out of memory\n");
         THROW;
+    }
 
     std::vector<char> dataClassData;
     std::vector<char> dataClassDirectory;
@@ -204,37 +251,21 @@ xxMaxNode* xxMaxReader(char const* name)
     {
         CFB::CompoundFileReader cfbReader(buffer.data(), buffer.size());
         cfbReader.EnumFiles(cfbReader.GetRootEntry(), -1, [&](CFB::COMPOUND_FILE_ENTRY const* entry, CFB::utf16string const& dir, int level)
-                            {
+        {
             std::string name = UTF16ToUTF8(entry->name);
-            if (name == "ClassData")
+            std::vector<char>* data = nullptr;
+            if (name == "ClassData")            data = &dataClassData;
+            else if (name == "ClassDirectory")  data = &dataClassDirectory;
+            else if (name == "ClassDirectory3") data = &dataClassDirectory;
+            else if (name == "Config")          data = &dataConfig;
+            else if (name == "DllDirectory")    data = &dataDllDirectory;
+            else if (name == "Scene")           data = &dataScene;
+            else if (name == "VideoPostQueue")  data = &dataVideoPostQueue;
+            if (data)
             {
-                dataClassData.resize(entry->size);
-                cfbReader.ReadFile(entry, 0, dataClassData.data(), dataClassData.size());
-            }
-            else if (name == "ClassDirectory" || name == "ClassDirectory3")
-            {
-                dataClassDirectory.resize(entry->size);
-                cfbReader.ReadFile(entry, 0, dataClassDirectory.data(), dataClassDirectory.size());
-            }
-            else if (name == "Config")
-            {
-                dataConfig.resize(entry->size);
-                cfbReader.ReadFile(entry, 0, dataConfig.data(), dataConfig.size());
-            }
-            else if (name == "DllDirectory")
-            {
-                dataDllDirectory.resize(entry->size);
-                cfbReader.ReadFile(entry, 0, dataDllDirectory.data(), dataDllDirectory.size());
-            }
-            else if (name == "Scene")
-            {
-                dataScene.resize(entry->size);
-                cfbReader.ReadFile(entry, 0, dataScene.data(), dataScene.size());
-            }
-            else if (name == "VideoPostQueue")
-            {
-                dataVideoPostQueue.resize(entry->size);
-                cfbReader.ReadFile(entry, 0, dataVideoPostQueue.data(), dataVideoPostQueue.size());
+                data->resize(entry->size);
+                cfbReader.ReadFile(entry, 0, data->data(), data->size());
+                (*data) = uncompress(*data);
             }
         });
     }
@@ -255,10 +286,16 @@ xxMaxNode* xxMaxReader(char const* name)
 
     // Root
     if (root->scene->empty())
+    {
+        log("Scene is empty\n");
         THROW;
+    }
     auto& scene = root->scene->front();
-    if (scene.type != 0x2020)
+    if (scene.type != 0x2020 && scene.type != 0x2023)
+    {
+        log("Scene type %04X is not supported\n", scene.type);
         THROW;
+    }
 
     // First Pass
     for (uint32_t i = 0; i < scene.size(); ++i)
@@ -267,7 +304,7 @@ xxMaxNode* xxMaxReader(char const* name)
         auto [className, classData] = getClass(*root->classDirectory, chunk.type);
         if (className.empty())
         {
-            printf("Class %d is not found! (Chunk:%d)\n", chunk.type, i);
+            log("Class %04X is not found! (Chunk:%d)\n", chunk.type, i);
             continue;
         }
         auto [dllFile, dllName] = getDll(*root->dllDirectory, classData.dllIndex);
@@ -306,7 +343,7 @@ xxMaxNode* xxMaxReader(char const* name)
             }
             else
             {
-                printf("Parent %d is not found! (Chunk:%d)\n", index, i);
+                log("Parent %d is not found! (Chunk:%d)\n", index, i);
             }
         }
 
@@ -334,35 +371,58 @@ xxMaxNode* xxMaxReader(char const* name)
                 // Position/Rotation/Scale
                 // FFFFFFFF-00002005-00000000-00009008
                 // PRS_CONTROL_CLASS_ID + MATRIX3_SUPERCLASS_ID
-                if (linkChunk->classData.classID != PRS_CONTROL_CLASS_ID ||
-                    linkChunk->classData.superClassID != MATRIX3_SUPERCLASS_ID)
-                    break;
+                if (checkClass(log, *linkChunk, PRS_CONTROL_CLASS_ID, MATRIX3_SUPERCLASS_ID) == false)
+                    continue;
+
+                // Bezier Float
+                // ????????-00002007-00000000-00009003
+                // HYBRIDINTERP_FLOAT_CLASS_ID + FLOAT_SUPERCLASS_ID
 
                 // Position XYZ
                 // ????????-118F7E02-FFEE238A-0000900B
                 // IPOS_CONTROL_CLASS_ID + POSITION_SUPERCLASS_ID
-                for (uint32_t i = 0; i < 3; ++i)
+                for (uint32_t i = 0; i < 1; ++i)
                 {
-                    xxMaxNode::Chunk const* position = getLinkChunk(scene, *linkChunk, 0, i);
-                    if (position == nullptr)
+                    xxMaxNode::Chunk const* positionXYZ = getLinkChunk(scene, *linkChunk, 0);
+                    if (positionXYZ == nullptr)
                         continue;
-                    std::vector<float> propertyFloat = getProperty<float>(*position, 0x7127, 0x2501);
-                    if (propertyFloat.empty())
+                    if (checkClass(log, *positionXYZ, IPOS_CONTROL_CLASS_ID, POSITION_SUPERCLASS_ID) == false)
                         continue;
-                    node.position[i] = propertyFloat.front();
+                    for (uint32_t i = 0; i < 3; ++i)
+                    {
+                        xxMaxNode::Chunk const* position = getLinkChunk(scene, *positionXYZ, i);
+                        if (position == nullptr)
+                            continue;
+                        if (checkClass(log, *position, HYBRIDINTERP_FLOAT_CLASS_ID, FLOAT_SUPERCLASS_ID) == false)
+                            continue;
+                        std::vector<float> propertyFloat = getProperty<float>(*position, 0x7127, 0x2501);
+                        if (propertyFloat.empty())
+                            continue;
+                        node.position[i] = propertyFloat.front();
+                    }
                 }
                 // Euler XYZ
                 // ????????-00002012-00000000-0000900C
                 // HYBRIDINTERP_POINT4_CLASS_ID + ROTATION_SUPERCLASS_ID
-                for (uint32_t i = 0; i < 3; ++i)
+                for (uint32_t i = 0; i < 1; ++i)
                 {
-                    xxMaxNode::Chunk const* rotation = getLinkChunk(scene, *linkChunk, 1, i);
-                    if (rotation == nullptr)
+                    xxMaxNode::Chunk const* eulerXYZ = getLinkChunk(scene, *linkChunk, 1);
+                    if (eulerXYZ == nullptr)
                         continue;
-                    std::vector<float> propertyFloat = getProperty<float>(*rotation, 0x7127, 0x2501);
-                    if (propertyFloat.empty())
+                    if (checkClass(log, *eulerXYZ, HYBRIDINTERP_POINT4_CLASS_ID, ROTATION_SUPERCLASS_ID) == false)
                         continue;
-                    node.rotation[i] = propertyFloat.front();
+                    for (uint32_t i = 0; i < 3; ++i)
+                    {
+                        xxMaxNode::Chunk const* euler = getLinkChunk(scene, *eulerXYZ, i);
+                        if (euler == nullptr)
+                            continue;
+                        if (checkClass(log, *euler, HYBRIDINTERP_FLOAT_CLASS_ID, FLOAT_SUPERCLASS_ID) == false)
+                            continue;
+                        std::vector<float> propertyFloat = getProperty<float>(*euler, 0x7127, 0x2501);
+                        if (propertyFloat.empty())
+                            continue;
+                        node.rotation[i] = propertyFloat.front();
+                    }
                 }
                 // Bezier Scale
                 // FFFFFFFF-00002010-00000000-0000900D
@@ -371,6 +431,8 @@ xxMaxNode* xxMaxReader(char const* name)
                 {
                     xxMaxNode::Chunk const* scale = getLinkChunk(scene, *linkChunk, 2);
                     if (scale == nullptr)
+                        continue;
+                    if (checkClass(log, *scale, HYBRIDINTERP_SCALE_CLASS_ID, SCALE_SUPERCLASS_ID) == false)
                         continue;
                     std::vector<float> propertyFloat = getProperty<float>(*scale, 0x7127, 0x2501);
                     if (propertyFloat.empty())
@@ -388,8 +450,9 @@ xxMaxNode* xxMaxReader(char const* name)
         nodes[i] = &parent->back();
     }
 
-    CATCH (...)
+    CATCH (std::exception const& e)
     {
+        log("Exception : %s\n", e.what());
         if (file)
         {
             fclose(file);
