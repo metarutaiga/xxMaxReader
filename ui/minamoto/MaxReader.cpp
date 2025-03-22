@@ -30,7 +30,7 @@ static int MaxReaderLog(char const* format, ...)
     va_list args;
 
     va_start(args, format);
-    size_t length = vsnprintf(nullptr, 0, format, args);
+    size_t length = vsnprintf(nullptr, 0, format, args) + 1;
     va_end(args);
 
     size_t pos = info.size();
@@ -38,6 +38,7 @@ static int MaxReaderLog(char const* format, ...)
 
     va_start(args, format);
     int result = vsnprintf(info.data() + pos, length, format, args);
+    info.pop_back();
     va_end(args);
 
     return result;
@@ -107,12 +108,12 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
                 selected = &child;
                 updated = true;
             }
-            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            if (child.empty() == false && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
             {
                 flags ^= 1;
             }
         }
-        if (child.empty() == false && flags & 1)
+        if (child.empty() == false && (flags & 1))
         {
             ImGui::Indent();
             updated |= ChunkFinder(child, select);
@@ -162,8 +163,10 @@ static bool NodeFinder(xxMaxNode& node)
     }
     for (auto& child : node)
     {
+        auto& flags = child.padding;
+
         char text[128];
-        snprintf(text, 128, "%s%s", child.padding ? ICON_FA_CIRCLE_O : ICON_FA_CIRCLE, child.name.c_str());
+        snprintf(text, 128, "%s%s", (flags & 1) ? ICON_FA_CIRCLE_O : ICON_FA_CIRCLE, child.name.c_str());
 
         ImGui::PushID(&child);
         ImGui::Selectable(text, selected == &child);
@@ -172,23 +175,23 @@ static bool NodeFinder(xxMaxNode& node)
         {
             ImGui::SetTooltip("Name:%s\n"
                               "Position:%g, %g, %g\n"
-                              "Rotation:%g, %g, %g\n"
+                              "Rotation:%g, %g, %g, %g\n"
                               "Scale:%g, %g, %g\n",
                               child.name.c_str(),
                               child.position[0], child.position[1], child.position[2],
-                              child.rotation[0], child.rotation[1], child.rotation[2],
+                              child.rotation[0], child.rotation[1], child.rotation[2], child.rotation[3],
                               child.scale[0], child.scale[1], child.scale[2]);
 
             if (ImGui::IsItemClicked() && selected != &child)
             {
                 selected = &child;
             }
-            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            if (child.empty() == false && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
             {
-                child.padding = !child.padding;
+                flags ^= 1;
             }
         }
-        if (child.padding)
+        if (child.empty() == false && (flags & 1))
         {
             ImGui::Indent();
             updated |= NodeFinder(child);

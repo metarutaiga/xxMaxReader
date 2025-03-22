@@ -15,7 +15,7 @@ struct xxMaxNode : public std::list<xxMaxNode>
     std::string name;
 
     float position[3] = { 0, 0, 0 };
-    float rotation[3] = { 0, 0, 0 };
+    float rotation[4] = { 0, 0, 0, 1 };
     float scale[3] = { 1, 1, 1 };
 
     uint16_t padding = 0;
