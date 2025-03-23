@@ -17,7 +17,7 @@
 		F5C251D72D87CD64005D23CD /* CFBReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251D52D87CD64005D23CD /* CFBReader.cpp */; };
 		F5C251D82D87CD64005D23CD /* CFBReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251D52D87CD64005D23CD /* CFBReader.cpp */; };
 		F5C251D92D87CD64005D23CD /* CFBReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251D52D87CD64005D23CD /* CFBReader.cpp */; };
-		F5C252022D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; settings = {COMPILER_FLAGS = "-D_HAS_EXCEPTIONS=0"; }; };
+		F5C252022D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
 		F5C252032D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
 		F5C252042D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
 		F5C252052D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
@@ -26,7 +26,7 @@
 		F5C2520A2D884B7C005D23CD /* MaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252072D884B7C005D23CD /* MaxReader.cpp */; };
 		F5C2520B2D884B7C005D23CD /* MaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252072D884B7C005D23CD /* MaxReader.cpp */; };
 		F5C2520D2D8D179C005D23CD /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = F5C2520C2D8D179C005D23CD /* libz.tbd */; };
-		F5E5B0DE2D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; settings = {COMPILER_FLAGS = "-D_HAS_EXCEPTIONS=0"; }; };
+		F5E5B0DE2D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; };
 		F5E5B0E72D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; };
 		F5E5B0F02D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; };
 		F5E5B0F92D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; };
@@ -375,14 +375,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				F5E5B0DE2D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */,
+				F5C252082D884B7C005D23CD /* MaxReader.cpp in Sources */,
+				F5C251D92D87CD64005D23CD /* CFBReader.cpp in Sources */,
+				F5C252022D882E20005D23CD /* xxMaxReader.cpp in Sources */,
 				D62FEBF12BE50FF3004E9FDF /* dllmain.cpp in Sources */,
 				F5E5B1A32D6C65EC008E0D21 /* except.cpp in Sources */,
-				F5C252082D884B7C005D23CD /* MaxReader.cpp in Sources */,
 				D6169D0A2BB17E3100E5490C /* new.cpp in Sources */,
-				F5C251D92D87CD64005D23CD /* CFBReader.cpp in Sources */,
 				F53FD15A2D8FF404003E81E1 /* tls.cpp in Sources */,
 				D6169D0C2BB17E4900E5490C /* ucrt.cpp in Sources */,
-				F5C252022D882E20005D23CD /* xxMaxReader.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

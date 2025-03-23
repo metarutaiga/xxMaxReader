@@ -10,7 +10,7 @@
 #include <IconFontCppHeaders/IconsFontAwesome4.h>
 #include "CFBReader.h"
 
-#if _HAS_EXCEPTIONS == 0 && __cpp_exceptions == 0
+#if _CPPUNWIND == 0 && __cpp_exceptions == 0
 #include <setjmp.h>
 extern thread_local jmp_buf compoundfilereader_jmp_buf;
 #define try         if (setjmp(compoundfilereader_jmp_buf) == 0) {
@@ -108,11 +108,7 @@ static std::pair<CFB::CompoundFileReader, std::vector<char>>* getCFB(std::string
         file->Read(buffer.data(), buffer.size());
         delete file;
 
-//#if _HAS_EXCEPTIONS || __cpp_exceptions
         try { return new std::pair{ CFB::CompoundFileReader(buffer.data(), buffer.size()), std::move(buffer) }; } catch (...) {}
-//#else
-//        return new std::pair{ CFB::CompoundFileReader(buffer.data(), buffer.size()), std::move(buffer) };
-//#endif
     }
 
     return nullptr;
@@ -168,11 +164,7 @@ bool CFBReader::Update(const UpdateData& updateData, bool& show)
                 if (entry)
                 {
                     fileContent.resize(size);
-#if _HAS_EXCEPTIONS || __cpp_exceptions
                     try { reader.ReadFile(entry, 0, fileContent.data(), fileContent.size()); } catch (...) {}
-#else
-                    reader.ReadFile(entry, 0, fileContent.data(), fileContent.size());
-#endif
                 }
                 delete cfb;
             }

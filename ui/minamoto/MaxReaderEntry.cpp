@@ -8,7 +8,7 @@
 #include "MaxReader.h"
 #include "CFBReader.h"
 
-#if _HAS_EXCEPTIONS == 0 && __cpp_exceptions == 0
+#if _CPPUNWIND == 0 && __cpp_exceptions == 0
 #if defined(xxWINDOWS)
 #include <windows.h>
 #endif

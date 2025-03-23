@@ -10,7 +10,7 @@
 #include <tuple>
 #include "xxMaxReader.h"
 
-#if _HAS_EXCEPTIONS || __cpp_exceptions
+#if _CPPUNWIND || __cpp_exceptions
 #include <exception>
 #define TRY         try {
 #define CATCH(x)    } catch(x)
@@ -758,6 +758,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
     switch (scene.type)
     {
     case 0x200E:    // [x] 3ds Max 9
+    case 0x200F:    // [x] 3ds Max 2008
     case 0x2020:    // [x] 3ds Max 2015
     case 0x2023:    // [x] 3ds Max 2018
         break;
@@ -859,7 +860,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
 
     CATCH (std::exception const& e)
     {
-#if _HAS_EXCEPTIONS || __cpp_exceptions
+#if _CPPUNWIND || __cpp_exceptions
         log("Exception : %s", e.what());
         log("\n");
 #endif
