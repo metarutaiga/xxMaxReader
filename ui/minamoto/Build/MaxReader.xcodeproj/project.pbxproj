@@ -12,15 +12,12 @@
 		D6169D0A2BB17E3100E5490C /* new.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6169D092BB17E3100E5490C /* new.cpp */; };
 		D6169D0C2BB17E4900E5490C /* ucrt.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6169D0B2BB17E4900E5490C /* ucrt.cpp */; };
 		D62FEBF12BE50FF3004E9FDF /* dllmain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D62FEBF02BE50FF3004E9FDF /* dllmain.cpp */; };
-		F5C251D02D8736A6005D23CD /* ImGuiFileDialog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251CE2D8736A6005D23CD /* ImGuiFileDialog.cpp */; };
-		F5C251D12D8736A6005D23CD /* ImGuiFileDialog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251CE2D8736A6005D23CD /* ImGuiFileDialog.cpp */; };
-		F5C251D22D8736A6005D23CD /* ImGuiFileDialog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251CE2D8736A6005D23CD /* ImGuiFileDialog.cpp */; };
-		F5C251D32D8736A6005D23CD /* ImGuiFileDialog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251CE2D8736A6005D23CD /* ImGuiFileDialog.cpp */; };
+		F53FD15A2D8FF404003E81E1 /* tls.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F53FD1592D8FF404003E81E1 /* tls.cpp */; };
 		F5C251D62D87CD64005D23CD /* CFBReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251D52D87CD64005D23CD /* CFBReader.cpp */; };
 		F5C251D72D87CD64005D23CD /* CFBReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251D52D87CD64005D23CD /* CFBReader.cpp */; };
 		F5C251D82D87CD64005D23CD /* CFBReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251D52D87CD64005D23CD /* CFBReader.cpp */; };
 		F5C251D92D87CD64005D23CD /* CFBReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251D52D87CD64005D23CD /* CFBReader.cpp */; };
-		F5C252022D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
+		F5C252022D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; settings = {COMPILER_FLAGS = "-D_HAS_EXCEPTIONS=0"; }; };
 		F5C252032D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
 		F5C252042D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
 		F5C252052D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
@@ -29,7 +26,7 @@
 		F5C2520A2D884B7C005D23CD /* MaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252072D884B7C005D23CD /* MaxReader.cpp */; };
 		F5C2520B2D884B7C005D23CD /* MaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252072D884B7C005D23CD /* MaxReader.cpp */; };
 		F5C2520D2D8D179C005D23CD /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = F5C2520C2D8D179C005D23CD /* libz.tbd */; };
-		F5E5B0DE2D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; };
+		F5E5B0DE2D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; settings = {COMPILER_FLAGS = "-D_HAS_EXCEPTIONS=0"; }; };
 		F5E5B0E72D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; };
 		F5E5B0F02D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; };
 		F5E5B0F92D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5E5B0C82D6C56AB008E0D21 /* MaxReaderEntry.cpp */; };
@@ -75,6 +72,7 @@
 		D6169D0B2BB17E4900E5490C /* ucrt.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ucrt.cpp; path = "../../../../ClangPlatform/windows-msvc/ucrt.cpp"; sourceTree = "<group>"; };
 		D62FEBF02BE50FF3004E9FDF /* dllmain.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dllmain.cpp; path = "../../../../ClangPlatform/windows-msvc/dllmain.cpp"; sourceTree = "<group>"; };
 		D644A041231ED82900B75B77 /* MaxReader.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = MaxReader.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		F53FD1592D8FF404003E81E1 /* tls.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = tls.cpp; path = "../../../../ClangPlatform/windows-msvc/tls.cpp"; sourceTree = SOURCE_ROOT; };
 		F5C251CB2D871835005D23CD /* MaxReaderPCH.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MaxReaderPCH.h; path = ../MaxReaderPCH.h; sourceTree = SOURCE_ROOT; };
 		F5C251CD2D8736A6005D23CD /* ImGuiFileDialog.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = ImGuiFileDialog.h; path = ../../../../ImGuiFileDialog/ImGuiFileDialog.h; sourceTree = SOURCE_ROOT; };
 		F5C251CE2D8736A6005D23CD /* ImGuiFileDialog.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = ImGuiFileDialog.cpp; path = ../../../../ImGuiFileDialog/ImGuiFileDialog.cpp; sourceTree = SOURCE_ROOT; };
@@ -165,6 +163,7 @@
 				D62FEBF02BE50FF3004E9FDF /* dllmain.cpp */,
 				F5E5B1A22D6C65EC008E0D21 /* except.cpp */,
 				D6169D092BB17E3100E5490C /* new.cpp */,
+				F53FD1592D8FF404003E81E1 /* tls.cpp */,
 				D6169D0B2BB17E4900E5490C /* ucrt.cpp */,
 			);
 			name = Configs;
@@ -198,8 +197,8 @@
 		F5C251CC2D87366B005D23CD /* ImGuiFileDialog */ = {
 			isa = PBXGroup;
 			children = (
-				F5C251CD2D8736A6005D23CD /* ImGuiFileDialog.h */,
 				F5C251CE2D8736A6005D23CD /* ImGuiFileDialog.cpp */,
+				F5C251CD2D8736A6005D23CD /* ImGuiFileDialog.h */,
 				F5C251CF2D8736A6005D23CD /* ImGuiFileDialogConfig.h */,
 			);
 			name = ImGuiFileDialog;
@@ -366,7 +365,6 @@
 			files = (
 				F5E5B0E72D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */,
 				F5C2520A2D884B7C005D23CD /* MaxReader.cpp in Sources */,
-				F5C251D02D8736A6005D23CD /* ImGuiFileDialog.cpp in Sources */,
 				F5C251D62D87CD64005D23CD /* CFBReader.cpp in Sources */,
 				F5C252052D882E20005D23CD /* xxMaxReader.cpp in Sources */,
 			);
@@ -382,8 +380,8 @@
 				F5C252082D884B7C005D23CD /* MaxReader.cpp in Sources */,
 				D6169D0A2BB17E3100E5490C /* new.cpp in Sources */,
 				F5C251D92D87CD64005D23CD /* CFBReader.cpp in Sources */,
+				F53FD15A2D8FF404003E81E1 /* tls.cpp in Sources */,
 				D6169D0C2BB17E4900E5490C /* ucrt.cpp in Sources */,
-				F5C251D12D8736A6005D23CD /* ImGuiFileDialog.cpp in Sources */,
 				F5C252022D882E20005D23CD /* xxMaxReader.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -394,7 +392,6 @@
 			files = (
 				F5E5B0F92D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */,
 				F5C2520B2D884B7C005D23CD /* MaxReader.cpp in Sources */,
-				F5C251D22D8736A6005D23CD /* ImGuiFileDialog.cpp in Sources */,
 				F5C251D72D87CD64005D23CD /* CFBReader.cpp in Sources */,
 				F5C252042D882E20005D23CD /* xxMaxReader.cpp in Sources */,
 			);
@@ -406,7 +403,6 @@
 			files = (
 				F5E5B0F02D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */,
 				F5C252092D884B7C005D23CD /* MaxReader.cpp in Sources */,
-				F5C251D32D8736A6005D23CD /* ImGuiFileDialog.cpp in Sources */,
 				F5C251D82D87CD64005D23CD /* CFBReader.cpp in Sources */,
 				F5C252032D882E20005D23CD /* xxMaxReader.cpp in Sources */,
 			);
@@ -513,7 +509,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_CPP_EXCEPTIONS = YES;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -597,7 +593,7 @@
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_ENABLE_CPP_EXCEPTIONS = YES;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (

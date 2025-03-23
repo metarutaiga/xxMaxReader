@@ -8,6 +8,16 @@
 #include "MaxReader.h"
 #include "CFBReader.h"
 
+#if _HAS_EXCEPTIONS == 0 && __cpp_exceptions == 0
+#if defined(xxWINDOWS)
+#include <windows.h>
+#endif
+#define try         if (1) {
+#define catch(x)    } else { std::exception e; std::string msg;
+#define throw       }
+#endif
+#include <ImGuiFileDialog/ImGuiFileDialog.cpp>
+
 #define PLUGIN_NAME     "MaxReader"
 #define PLUGIN_MAJOR    1
 #define PLUGIN_MINOR    0
@@ -85,4 +95,3 @@ moduleAPI void Render(const RenderData& renderData)
 
 }
 //------------------------------------------------------------------------------
-

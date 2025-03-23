@@ -11,14 +11,6 @@
 #include "xxMaxReader.h"
 #include "MaxReader.h"
 
-#if defined(__APPLE__)
-#define HAVE_FILEDIALOG 1
-#elif defined(_WIN32) && !defined(__clang__)
-#define HAVE_FILEDIALOG 1
-#else
-#define HAVE_FILEDIALOG 0
-#endif
-
 static std::string path;
 static std::string info;
 static ImGuiFileDialog* fileDialog;
@@ -52,7 +44,7 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
     // Chunk
     if (selected)
     {
-        ssize_t delta = 0;
+        intptr_t delta = 0;
         if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) delta = -1;
         if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) delta = 1;
         if (delta != 0)
@@ -124,16 +116,16 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
     return updated;
 }
 //------------------------------------------------------------------------------
-static bool NodeFinder(xxMaxNode& node)
+static bool NodeFinder(xxMaxNode& node, std::function<void(std::string& text)> select)
 {
     static void* selected;
     bool updated = false;
 
     if (selected)
     {
-        ssize_t delta = 0;
-        if (ImGui::IsKeyReleased(ImGuiKey_UpArrow)) delta = -1;
-        if (ImGui::IsKeyReleased(ImGuiKey_DownArrow)) delta = 1;
+        intptr_t delta = 0;
+        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) delta = -1;
+        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) delta = 1;
         if (delta != 0)
         {
             for (auto it = node.begin(); it != node.end(); ++it)
@@ -154,6 +146,7 @@ static bool NodeFinder(xxMaxNode& node)
                     next++;
                 if (next != node.end())
                 {
+                    select(next->text);
                     selected = &(*next);
                     updated = true;
                     break;
@@ -173,17 +166,16 @@ static bool NodeFinder(xxMaxNode& node)
         ImGui::PopID();
         if (ImGui::IsItemHovered())
         {
-            ImGui::SetTooltip("Name:%s\n"
-                              "Position:%g, %g, %g\n"
-                              "Rotation:%g, %g, %g, %g\n"
-                              "Scale:%g, %g, %g\n",
-                              child.name.c_str(),
-                              child.position[0], child.position[1], child.position[2],
-                              child.rotation[0], child.rotation[1], child.rotation[2], child.rotation[3],
-                              child.scale[0], child.scale[1], child.scale[2]);
+            ImGui::BeginTooltip();
+            ImGui::Text("Name:%s", child.name.c_str());
+            ImGui::Text("Position:%g, %g, %g", child.position[0], child.position[1], child.position[2]);
+            ImGui::Text("Rotation:%g, %g, %g, %g", child.rotation[0], child.rotation[1], child.rotation[2], child.rotation[3]);
+            ImGui::Text("Scale:%g, %g, %g", child.scale[0], child.scale[1], child.scale[2]);
+            ImGui::EndTooltip();
 
             if (ImGui::IsItemClicked() && selected != &child)
             {
+                select(child.text);
                 selected = &child;
             }
             if (child.empty() == false && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
@@ -194,7 +186,7 @@ static bool NodeFinder(xxMaxNode& node)
         if (child.empty() == false && (flags & 1))
         {
             ImGui::Indent();
-            updated |= NodeFinder(child);
+            updated |= NodeFinder(child, select);
             ImGui::Unindent();
         }
     }
@@ -209,17 +201,13 @@ void MaxReader::Initialize()
 #else
     path = std::string(xxGetDocumentPath()) + "/Project/";
 #endif
-#if HAVE_FILEDIALOG
     fileDialog = new ImGuiFileDialog;
-#endif
     root = nullptr;
 }
 //------------------------------------------------------------------------------
 void MaxReader::Shutdown()
 {
-#if HAVE_FILEDIALOG
     delete fileDialog;
-#endif
     delete root;
 }
 //------------------------------------------------------------------------------
@@ -236,7 +224,6 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
         ImGui::SameLine();
         if (ImGui::Button("..."))
         {
-#if HAVE_FILEDIALOG
             IGFD::FileDialogConfig config = { path };
 #if defined(_WIN32)
             if (config.path.size() && config.path.back() != '\\')
@@ -245,8 +232,7 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
             if (config.path.size() && config.path.back() != '/')
                 config.path.resize(config.path.rfind('/') + 1);
 #endif
-            fileDialog->OpenDialog("Reader", "Choose File", "All Files(*.*){.*}", config);
-#endif
+            fileDialog->OpenDialog("MaxReader", "Choose File", "All Files(*.*){.*}", config);
         }
 
         static int tabIndex;
@@ -335,22 +321,35 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
         ImGui::Columns(1);
 
         ImGui::Separator();
+
+        static std::string nodeText;
+
+        ImGui::Columns(2);
         if (ImGui::BeginChild("NodeFinder", ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 16)))
         {
             if (root)
             {
-                updated |= NodeFinder(*root);
+                updated |= NodeFinder(*root, [](std::string const& text)
+                {
+                    nodeText = text;
+                });
             }
             ImGui::EndChild();
         }
+        ImGui::NextColumn();
+        if (ImGui::BeginChild("NodeText", ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 16)))
+        {
+            ImGui::TextUnformatted(nodeText.c_str());
+            ImGui::EndChild();
+        }
+        ImGui::Columns(1);
 
         ImGui::Separator();
         ImGui::InputTextMultiline("INFO", info, ImVec2(0, 0), ImGuiInputTextFlags_ReadOnly);
     }
     ImGui::End();
 
-#if HAVE_FILEDIALOG
-    if (fileDialog->Display("Reader", 0, ImVec2(512, 384)))
+    if (fileDialog->Display("MaxReader", 0, ImVec2(512, 384)))
     {
         if (fileDialog->IsOk())
         {
@@ -362,7 +361,6 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
         }
         fileDialog->Close();
     }
-#endif
 
     return updated;
 }

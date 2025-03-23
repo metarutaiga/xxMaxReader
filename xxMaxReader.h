@@ -6,6 +6,7 @@
 //==============================================================================
 #pragma once
 
+#include <array>
 #include <list>
 #include <string>
 #include <vector>
@@ -14,9 +15,14 @@ struct xxMaxNode : public std::list<xxMaxNode>
 {
     std::string name;
 
-    float position[3] = { 0, 0, 0 };
-    float rotation[4] = { 0, 0, 0, 1 };
-    float scale[3] = { 1, 1, 1 };
+    std::array<float, 3> position = { 0, 0, 0 };
+    std::array<float, 4> rotation = { 0, 0, 0, 1 };
+    std::array<float, 3> scale = { 1, 1, 1 };
+
+    std::vector<uint32_t> indices;
+    std::vector<std::array<float, 3>> vertices;
+
+    std::string text;
 
     uint16_t padding = 0;
 

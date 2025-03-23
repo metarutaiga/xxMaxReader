@@ -5,47 +5,79 @@
 // https://github.com/metarutaiga/xxmaxreader
 //==============================================================================
 #include <stdio.h>
-#include <format>
 #include <functional>
 #include <map>
 #include <tuple>
-#include "compoundfilereader/src/include/compoundfilereader.h"
-#include "compoundfilereader/src/include/utf.h"
 #include "xxMaxReader.h"
 
+#if _HAS_EXCEPTIONS || __cpp_exceptions
+#include <exception>
+#define TRY         try {
+#define CATCH(x)    } catch(x)
+#define THROW       throw std::runtime_error(__FILE_NAME__ ":" _LIBCPP_TOSTRING(__LINE__))
+#else
+#include <setjmp.h>
+thread_local jmp_buf compoundfilereader_jmp_buf = {};
+#define TRY         if (setjmp(compoundfilereader_jmp_buf) == 0) {
+#define CATCH(x)    } else
+#define THROW       longjmp(compoundfilereader_jmp_buf, 1);
+#define throw       longjmp(compoundfilereader_jmp_buf, 1);
+#endif
+#include "compoundfilereader/src/include/compoundfilereader.h"
+#include "compoundfilereader/src/include/utf.h"
+
+#if defined(__APPLE__)
+#include <zlib.h>
+#endif
+
 #define BASENODE_SUPERCLASS_ID          0x00000001
+#define GEOMOBJECT_SUPERCLASS_ID        0x00000010
 #define FLOAT_SUPERCLASS_ID             0x00009003
 #define MATRIX3_SUPERCLASS_ID           0x00009008
-#define POSITION_SUPERCLASS_ID          0x0000900B
-#define ROTATION_SUPERCLASS_ID          0x0000900C
-#define SCALE_SUPERCLASS_ID             0x0000900D
+#define POSITION_SUPERCLASS_ID          0x0000900b
+#define ROTATION_SUPERCLASS_ID          0x0000900c
+#define SCALE_SUPERCLASS_ID             0x0000900d
 
 #define LININTERP_POSITION_CLASS_ID     xxMaxNode::ClassID{0x00002002, 0x00000000}
 #define LININTERP_ROTATION_CLASS_ID     xxMaxNode::ClassID{0x00002003, 0x00000000}
 #define LININTERP_SCALE_CLASS_ID        xxMaxNode::ClassID{0x00002004, 0x00000000}
-
 #define PRS_CONTROL_CLASS_ID            xxMaxNode::ClassID{0x00002005, 0x00000000}
-
 #define HYBRIDINTERP_FLOAT_CLASS_ID     xxMaxNode::ClassID{0x00002007, 0x00000000}
 #define HYBRIDINTERP_SCALE_CLASS_ID     xxMaxNode::ClassID{0x00002010, 0x00000000}
 #define HYBRIDINTERP_POINT4_CLASS_ID    xxMaxNode::ClassID{0x00002012, 0x00000000}
-
 #define TCBINTERP_POSITION_CLASS_ID     xxMaxNode::ClassID{0x00442312, 0x00000000}
 #define TCBINTERP_ROTATION_CLASS_ID     xxMaxNode::ClassID{0x00442313, 0x00000000}
 #define TCBINTERP_SCALE_CLASS_ID        xxMaxNode::ClassID{0x00442315, 0x00000000}
-
 #define IPOS_CONTROL_CLASS_ID           xxMaxNode::ClassID{0x118f7e02, 0xffee238a}
+
+#define BOXOBJ_CLASS_ID                 xxMaxNode::ClassID{0x00000010, 0x00000000}
+#define SPHERE_CLASS_ID                 xxMaxNode::ClassID{0x00000011, 0x00000000}
+#define CYLINDER_CLASS_ID               xxMaxNode::ClassID{0x00000012, 0x00000000}
+#define TORUS_CLASS_ID                  xxMaxNode::ClassID{0x00000020, 0x00000000}
+#define CONE_CLASS_ID                   xxMaxNode::ClassID{0xa86c23dd, 0x00000000}
+#define GSPHERE_CLASS_ID                xxMaxNode::ClassID{0x00000000, 0x00007f9e}
+#define TUBE_CLASS_ID                   xxMaxNode::ClassID{0x00007b21, 0x00000000}
+#define PYRAMID_CLASS_ID                xxMaxNode::ClassID{0x76bf318a, 0x4bf37b10}
+#define PLANE_CLASS_ID                  xxMaxNode::ClassID{0x081f1dfc, 0x77566f65}
+#define EDITTRIOBJ_CLASS_ID             xxMaxNode::ClassID{0xe44f10b3, 0x00000000}
+#define EPOLYOBJ_CLASS_ID               xxMaxNode::ClassID{0x1bf8338d, 0x192f6098}
 
 #define FLOAT_TYPE                      0x2501, 0x2503, 0x2504, 0x2505
 
-#define TRY         try {
-#define CATCH(x)    } catch(x)
-#define THROW       throw std::runtime_error(__FILE_NAME__ ":" _LIBCPP_TOSTRING(__LINE__))
-
-#include <zlib.h>
+template <typename... Args>
+static std::string format(char const* format, Args&&... args)
+{
+    std::string output;
+    size_t length = snprintf(nullptr, 0, format, args...) + 1;
+    output.resize(length);
+    snprintf(output.data(), length, format, args...);
+    output.pop_back();
+    return output;
+}
 
 static std::vector<char> uncompress(std::vector<char> const& input)
 {
+#if defined(__APPLE__)
     if (input.size() < 10 || input[0] != char(0x1F) || input[1] != char(0x8B))
         return input;
 
@@ -83,6 +115,14 @@ static std::vector<char> uncompress(std::vector<char> const& input)
 
     inflateEnd(&stream);
     return input;
+#else
+    return input;
+#endif
+}
+
+static constexpr uint64_t class64(xxMaxNode::ClassID classID)
+{
+    return (uint64_t)classID.first | ((uint64_t)classID.second << 32);
 }
 
 static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* end)
@@ -120,7 +160,7 @@ static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* e
             break;
         xxMaxNode::Chunk child;
         child.type = type;
-        child.name = std::format("{:04X}", type);
+        child.name = format("%04X", type);
         if (children)
         {
             parseChunk(child, begin, next);
@@ -227,22 +267,23 @@ static bool checkClass(int(*log)(char const*, ...), xxMaxNode::Chunk const& chun
     if (chunk.classData.classID == classID && chunk.classData.superClassID == superClassID)
         return true;
     auto& classData = chunk.classData;
-    log("Unknown (%08X-%08X-%08X-%08X) %s\n", classData.dllIndex, classData.classID.first, classData.classID.second, classData.superClassID, chunk.name.c_str());
+    log("Unknown (%08X-%08X-%08X-%08X) %s", classData.dllIndex, classData.classID.first, classData.classID.second, classData.superClassID, chunk.name.c_str());
+    log("\n");
     return false;
 }
 
 static void eulerToQuaternion(float quaternion[4], float euler[3])
 {
-    float cr = cosf(euler[0] * 0.5f);
-    float sr = sinf(euler[0] * 0.5f);
-    float cp = cosf(euler[1] * 0.5f);
-    float sp = sinf(euler[1] * 0.5f);
-    float cy = cosf(euler[2] * 0.5f);
-    float sy = sinf(euler[2] * 0.5f);
-    quaternion[0] = sr * cp * cy - cr * sp * sy;
-    quaternion[1] = cr * sp * cy + sr * cp * sy;
-    quaternion[2] = cr * cp * sy - sr * sp * cy;
-    quaternion[3] = cr * cp * cy + sr * sp * sy;
+    float cx = cosf(euler[0] * 0.5f);
+    float cy = cosf(euler[1] * 0.5f);
+    float cz = cosf(euler[2] * 0.5f);
+    float sx = sinf(euler[0] * 0.5f);
+    float sy = sinf(euler[1] * 0.5f);
+    float sz = sinf(euler[2] * 0.5f);
+    quaternion[0] = (sx * cy * cz - cx * sy * sz);
+    quaternion[1] = (cx * sy * cz + sx * cy * sz);
+    quaternion[2] = (cx * cy * sz - sx * sy * cz);
+    quaternion[3] = (cx * cy * cz + sx * sy * sz);
 }
 
 static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, xxMaxNode& node)
@@ -282,7 +323,8 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                         node.position[i] = propertyFloat[0];
                         continue;
                     }
-                    log("Value is not found (%s)\n", position->name.c_str());
+                    log("Value is not found (%s)", position->name.c_str());
+                    log("\n");
                 }
                 continue;
             }
@@ -300,7 +342,8 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                     node.position[2] = propertyFloat[2];
                     continue;
                 }
-                log("Value is not found (%s)\n", positionXYZ->name.c_str());
+                log("Value is not found (%s)", positionXYZ->name.c_str());
+                log("\n");
                 continue;
             }
         }
@@ -336,9 +379,10 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                         node.rotation[i] = propertyFloat[0];
                         continue;
                     }
-                    log("Value is not found (%s)\n", rotation->name.c_str());
+                    log("Value is not found (%s)", rotation->name.c_str());
+                    log("\n");
                 }
-                eulerToQuaternion(node.rotation, node.rotation);
+                eulerToQuaternion(node.rotation.data(), node.rotation.data());
                 continue;
             }
             if (classData.classID == LININTERP_ROTATION_CLASS_ID ||
@@ -358,10 +402,11 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                 }
                 if (propertyFloat.size() >= 3)
                 {
-                    eulerToQuaternion(node.rotation, propertyFloat.data());
+                    eulerToQuaternion(node.rotation.data(), propertyFloat.data());
                     continue;
                 }
-                log("Value is not found (%s)\n", rotationXYZ->name.c_str());
+                log("Value is not found (%s)", rotationXYZ->name.c_str());
+                log("\n");
                 continue;
             }
         }
@@ -399,7 +444,8 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                     node.scale[0] = node.scale[1] = node.scale[2] = propertyFloat[0];
                     continue;
                 }
-                log("Value is not found (%s)\n", scale->name.c_str());
+                log("Value is not found (%s)", scale->name.c_str());
+                log("\n");
                 continue;
             }
         }
@@ -407,12 +453,233 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
     }
 }
 
+static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, xxMaxNode& node)
+{
+    if (chunk.classData.superClassID != GEOMOBJECT_SUPERCLASS_ID)
+        return;
+    xxMaxNode::Chunk const* pParamBlock = getLinkChunk(scene, chunk, 0);
+    if (pParamBlock == nullptr)
+        return;
+    xxMaxNode::Chunk const& paramBlock = (*pParamBlock);
+
+    // ????????-00000010-00000000-00000010 Box              BOXOBJ_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
+    // ????????-00000011-00000000-00000010 Sphere           SPHERE_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
+    // ????????-00000012-00000000-00000010 Cylinder         CYLINDER_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
+    // ????????-00000020-00000000-00000010 Torus            TORUS_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
+    // ????????-a86c23dd-00000000-00000010 Cone             CONE_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
+    // ????????-00000000-00007f9e-00000010 GeoSphere        GSPHERE_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
+    // ????????-00007b21-00000000-00000010 Tube             TUBE_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
+    // ????????-76bf318a-4bf37b10-00000010 Pyramid          PYRAMID_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
+    // ????????-081f1dfc-77566f65-00000010 Plane            PLANE_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
+    // ????????-e44f10b3-00000000-00000010 Editable Mesh    EDITTRIOBJ_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
+    // ????????-1bf8338d-192f6098-00000010 Editable Poly    EPOLYOBJ_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
+    switch (class64(chunk.classData.classID))
+    {
+    case class64(BOXOBJ_CLASS_ID):
+        if (paramBlock.size() > 4)
+        {
+            std::vector<float> propertyLength = getProperty<float>(paramBlock[2], 0x0100);
+            std::vector<float> propertyWidth = getProperty<float>(paramBlock[3], 0x0100);
+            std::vector<float> propertyHeight = getProperty<float>(paramBlock[4], 0x0100);
+            if (propertyLength.empty() == false && propertyWidth.empty() == false && propertyHeight.empty() == false)
+            {
+                float length = propertyLength.front();
+                float width = propertyWidth.front();
+                float height = propertyHeight.front();
+
+                node.vertices =
+                {
+                    { -length, -width, -height },
+                    {  length, -width, -height },
+                    { -length,  width, -height },
+                    {  length,  width, -height },
+                    { -length, -width,  height },
+                    {  length, -width,  height },
+                    { -length,  width,  height },
+                    {  length,  width,  height },
+                };
+
+                node.text += format("Primitive : %s", "Box") + '\n';
+                node.text += format("Length : %f", length) + '\n';
+                node.text += format("Width : %f", width) + '\n';
+                node.text += format("Height : %f", height) + '\n';
+                return;
+            }
+        }
+        checkClass(log, paramBlock, {}, 0);
+        break;
+    case class64(SPHERE_CLASS_ID):
+        if (paramBlock.size() > 2)
+        {
+            std::vector<float> propertyRadius = getProperty<float>(paramBlock[2], 0x0100);
+            if (propertyRadius.empty() == false)
+            {
+                float radius = propertyRadius.front();
+
+                node.text += format("Primitive : %s", "Sphere") + '\n';
+                node.text += format("Radius : %f", radius) + '\n';
+                return;
+            }
+        }
+        checkClass(log, paramBlock, {}, 0);
+        break;
+    case class64(CYLINDER_CLASS_ID):
+        if (paramBlock.size() > 3)
+        {
+            std::vector<float> propertyRadius = getProperty<float>(paramBlock[2], 0x0100);
+            std::vector<float> propertyHeight = getProperty<float>(paramBlock[3], 0x0100);
+            if (propertyRadius.empty() == false && propertyHeight.empty() == false)
+            {
+                float radius = propertyRadius.front();
+                float height = propertyHeight.front();
+
+                node.text += format("Primitive : %s", "Cylinder") + '\n';
+                node.text += format("Radius : %f", radius) + '\n';
+                node.text += format("Height : %f", height) + '\n';
+                return;
+            }
+        }
+        checkClass(log, paramBlock, {}, 0);
+        break;
+    case class64(TORUS_CLASS_ID):
+        if (paramBlock.size() > 3)
+        {
+            std::vector<float> propertyRadius1 = getProperty<float>(paramBlock[2], 0x0100);
+            std::vector<float> propertyRadius2 = getProperty<float>(paramBlock[3], 0x0100);
+            if (propertyRadius1.empty() == false && propertyRadius2.empty() == false)
+            {
+                float radius1 = propertyRadius1.front();
+                float radius2 = propertyRadius2.front();
+
+                node.text += format("Primitive : %s", "Torus") + '\n';
+                node.text += format("Radius1 : %f", radius1) + '\n';
+                node.text += format("Radius2 : %f", radius2) + '\n';
+                return;
+            }
+        }
+        checkClass(log, paramBlock, {}, 0);
+        break;
+    case class64(CONE_CLASS_ID):
+        if (paramBlock.size() > 4)
+        {
+            std::vector<float> propertyRadius1 = getProperty<float>(paramBlock[2], 0x0100);
+            std::vector<float> propertyRadius2 = getProperty<float>(paramBlock[3], 0x0100);
+            std::vector<float> propertyHeight = getProperty<float>(paramBlock[4], 0x0100);
+            if (propertyRadius1.empty() == false && propertyRadius2.empty() == false && propertyHeight.empty() == false)
+            {
+                float radius1 = propertyRadius1.front();
+                float radius2 = propertyRadius2.front();
+                float height = propertyHeight.front();
+
+                node.text += format("Primitive : %s", "Cone") + '\n';
+                node.text += format("Radius1 : %f", radius1) + '\n';
+                node.text += format("Radius2 : %f", radius2) + '\n';
+                node.text += format("Height : %f", height) + '\n';
+                return;
+            }
+        }
+        checkClass(log, paramBlock, {}, 0);
+        break;
+    case class64(GSPHERE_CLASS_ID):
+        if (paramBlock.size() > 2)
+        {
+            std::vector<float> propertyRadius = getProperty<float>(paramBlock[2], 0x0100);
+            if (propertyRadius.empty() == false)
+            {
+                float radius = propertyRadius.front();
+
+                node.text += format("Primitive : %s", "GeoSphere") + '\n';
+                node.text += format("Radius : %f", radius) + '\n';
+                return;
+            }
+        }
+        checkClass(log, paramBlock, {}, 0);
+        break;
+    case class64(TUBE_CLASS_ID):
+        if (paramBlock.size() > 4)
+        {
+            std::vector<float> propertyRadius1 = getProperty<float>(paramBlock[2], 0x0100);
+            std::vector<float> propertyRadius2 = getProperty<float>(paramBlock[3], 0x0100);
+            std::vector<float> propertyHeight = getProperty<float>(paramBlock[4], 0x0100);
+            if (propertyRadius1.empty() == false && propertyRadius2.empty() == false && propertyHeight.empty() == false)
+            {
+                float radius1 = propertyRadius1.front();
+                float radius2 = propertyRadius2.front();
+                float height = propertyHeight.front();
+
+                node.text += format("Primitive : %s", "Tube") + '\n';
+                node.text += format("Radius1 : %f", radius1) + '\n';
+                node.text += format("Radius2 : %f", radius2) + '\n';
+                node.text += format("Height : %f", height) + '\n';
+                return;
+            }
+        }
+        checkClass(log, paramBlock, {}, 0);
+        break;
+    case class64(PYRAMID_CLASS_ID):
+        if (paramBlock.size() > 4)
+        {
+            std::vector<float> propertyWidth = getProperty<float>(paramBlock[2], 0x0100);
+            std::vector<float> propertyDepth = getProperty<float>(paramBlock[3], 0x0100);
+            std::vector<float> propertyHeight = getProperty<float>(paramBlock[4], 0x0100);
+            if (propertyWidth.empty() == false && propertyDepth.empty() == false && propertyHeight.empty() == false)
+            {
+                float width = propertyWidth.front();
+                float depth = propertyDepth.front();
+                float height = propertyHeight.front();
+
+                node.text += format("Primitive : %s", "Pyramid") + '\n';
+                node.text += format("Width : %f", width) + '\n';
+                node.text += format("Depth : %f", depth) + '\n';
+                node.text += format("Height : %f", height) + '\n';
+                return;
+            }
+        }
+        checkClass(log, paramBlock, {}, 0);
+        break;
+    case class64(PLANE_CLASS_ID):
+        if (paramBlock.size() > 3)
+        {
+            std::vector<float> propertyLength = getProperty<float>(paramBlock[2], 0x0100);
+            std::vector<float> propertyWidth = getProperty<float>(paramBlock[3], 0x0100);
+            if (propertyLength.empty() == false && propertyWidth.empty() == false)
+            {
+                float length = propertyLength.front();
+                float width = propertyWidth.front();
+
+                node.vertices =
+                {
+                    { -length, -width, 0 },
+                    {  length, -width, 0 },
+                    { -length,  width, 0 },
+                    {  length,  width, 0 },
+                };
+
+                node.text += format("Primitive : %s", "Plane") + '\n';
+                node.text += format("Length : %f", length) + '\n';
+                node.text += format("Width : %f", width) + '\n';
+                return;
+            }
+        }
+        checkClass(log, paramBlock, {}, 0);
+        break;
+    case class64(EDITTRIOBJ_CLASS_ID):
+        break;
+    case class64(EPOLYOBJ_CLASS_ID):
+        break;
+    default:
+        break;
+    }
+    checkClass(log, chunk, {}, 0);
+}
+
 xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
 {
     FILE* file = fopen(name, "rb");
     if (file == nullptr)
     {
-        log("File is not found\n", name);
+        log("File is not found", name);
+        log("\n");
         return nullptr;
     }
 
@@ -423,7 +690,8 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
     root = new xxMaxNode;
     if (root == nullptr)
     {
-        log("Out of memory\n");
+        log("Out of memory");
+        log("\n");
         THROW;
     }
 
@@ -482,18 +750,22 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
     // Root
     if (root->scene->empty())
     {
-        log("Scene is empty\n");
+        log("Scene is empty");
+        log("\n");
         THROW;
     }
     auto& scene = root->scene->front();
     switch (scene.type)
     {
-    case 0x200E:    // 3ds Max 9
-    case 0x2020:
-    case 0x2023:
+    case 0x200E:    // [x] 3ds Max 9
+    case 0x2020:    // [x] 3ds Max 2015
+    case 0x2023:    // [x] 3ds Max 2018
         break;
     default:
-        log("Scene type %04X is not supported\n", scene.type);
+        if (scene.type >= 0x2000)
+            break;
+        log("Scene type %04X is not supported", scene.type);
+        log("\n");
         THROW;
     }
 
@@ -504,7 +776,8 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
         auto [className, classData] = getClass(*root->classDirectory, chunk.type);
         if (className.empty())
         {
-            log("Class %04X is not found! (Chunk:%d)\n", chunk.type, i);
+            log("Class %04X is not found! (Chunk:%d)", chunk.type, i);
+            log("\n");
             continue;
         }
         auto [dllFile, dllName] = getDll(*root->dllDirectory, classData.dllIndex);
@@ -543,13 +816,14 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
             }
             else
             {
-                log("Parent %d is not found! (Chunk:%d)\n", index, i);
+                log("Parent %d is not found! (Chunk:%d)", index, i);
+                log("\n");
             }
         }
 
         // Name
         std::vector<uint16_t> propertyName = getProperty<uint16_t>(chunk, 0x0962);
-        if (propertyName.size() > 0)
+        if (propertyName.empty() == false)
         {
             node.name = UTF16ToUTF8(propertyName.data(), propertyName.size());
         }
@@ -567,7 +841,15 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
             switch (i)
             {
             case 0: getPositionRotationScale(log, scene, *linkChunk, node); break;
+            case 1: getPrimitive(log, scene, *linkChunk, node);             break;
             }
+        }
+
+        // Text
+        std::vector<uint16_t> propertyText = getProperty<uint16_t>(chunk, 0x0120);
+        if (propertyText.empty() == false)
+        {
+            node.text = UTF16ToUTF8(propertyText.data(), propertyText.size());
         }
 
         // Attach
@@ -577,7 +859,10 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
 
     CATCH (std::exception const& e)
     {
-        log("Exception : %s\n", e.what());
+#if _HAS_EXCEPTIONS || __cpp_exceptions
+        log("Exception : %s", e.what());
+        log("\n");
+#endif
         if (file)
         {
             fclose(file);

@@ -8,17 +8,28 @@
 #include <xxGraphicPlus/xxFile.h>
 #include <ImGuiFileDialog/ImGuiFileDialog.h>
 #include <IconFontCppHeaders/IconsFontAwesome4.h>
-#include "compoundfilereader/src/include/compoundfilereader.h"
-#include "utf.h"
 #include "CFBReader.h"
 
-#if defined(__APPLE__)
-#define HAVE_FILEDIALOG 1
-#elif defined(_WIN32) && !defined(__clang__)
-#define HAVE_FILEDIALOG 1
-#else
-#define HAVE_FILEDIALOG 0
+#if _HAS_EXCEPTIONS == 0 && __cpp_exceptions == 0
+#include <setjmp.h>
+extern thread_local jmp_buf compoundfilereader_jmp_buf;
+#define try         if (setjmp(compoundfilereader_jmp_buf) == 0) {
+#define catch(x)    } else
+#define throw       longjmp(compoundfilereader_jmp_buf, 1);
 #endif
+#include "compoundfilereader/src/include/compoundfilereader.h"
+#include "compoundfilereader/src/include/utf.h"
+
+template <typename... Args>
+static std::string format(char const* format, Args&&... args)
+{
+    std::string output;
+    size_t length = snprintf(nullptr, 0, format, args...) + 1;
+    output.resize(length);
+    snprintf(output.data(), length, format, args...);
+    output.pop_back();
+    return output;
+}
 
 static std::string path;
 static std::string info;
@@ -97,7 +108,11 @@ static std::pair<CFB::CompoundFileReader, std::vector<char>>* getCFB(std::string
         file->Read(buffer.data(), buffer.size());
         delete file;
 
+//#if _HAS_EXCEPTIONS || __cpp_exceptions
         try { return new std::pair{ CFB::CompoundFileReader(buffer.data(), buffer.size()), std::move(buffer) }; } catch (...) {}
+//#else
+//        return new std::pair{ CFB::CompoundFileReader(buffer.data(), buffer.size()), std::move(buffer) };
+//#endif
     }
 
     return nullptr;
@@ -110,16 +125,12 @@ void CFBReader::Initialize()
 #else
     path = std::string(xxGetDocumentPath()) + "/Project/";
 #endif
-#if HAVE_FILEDIALOG
     fileDialog = new ImGuiFileDialog;
-#endif
 }
 //------------------------------------------------------------------------------
 void CFBReader::Shutdown()
 {
-#if HAVE_FILEDIALOG
     delete fileDialog;
-#endif
     root.clear();
 }
 //------------------------------------------------------------------------------
@@ -135,7 +146,6 @@ bool CFBReader::Update(const UpdateData& updateData, bool& show)
         ImGui::SameLine();
         if (ImGui::Button("..."))
         {
-#if HAVE_FILEDIALOG
             IGFD::FileDialogConfig config = { path };
 #if defined(_WIN32)
             if (config.path.size() && config.path.back() != '\\')
@@ -144,8 +154,7 @@ bool CFBReader::Update(const UpdateData& updateData, bool& show)
             if (config.path.size() && config.path.back() != '/')
                 config.path.resize(config.path.rfind('/') + 1);
 #endif
-            fileDialog->OpenDialog("Reader", "Choose File", "All Files(*.*){.*}", config);
-#endif
+            fileDialog->OpenDialog("CFBReader", "Choose File", "All Files(*.*){.*}", config);
         }
 
         ImGui::Columns(2);
@@ -159,7 +168,11 @@ bool CFBReader::Update(const UpdateData& updateData, bool& show)
                 if (entry)
                 {
                     fileContent.resize(size);
+#if _HAS_EXCEPTIONS || __cpp_exceptions
                     try { reader.ReadFile(entry, 0, fileContent.data(), fileContent.size()); } catch (...) {}
+#else
+                    reader.ReadFile(entry, 0, fileContent.data(), fileContent.size());
+#endif
                 }
                 delete cfb;
             }
@@ -215,8 +228,7 @@ bool CFBReader::Update(const UpdateData& updateData, bool& show)
     }
     ImGui::End();
 
-#if HAVE_FILEDIALOG
-    if (fileDialog->Display("Reader", 0, ImVec2(512, 384)))
+    if (fileDialog->Display("CFBReader", 0, ImVec2(512, 384)))
     {
         if (fileDialog->IsOk())
         {
@@ -229,12 +241,11 @@ bool CFBReader::Update(const UpdateData& updateData, bool& show)
                 const CFB::COMPOUND_FILE_HDR* hdr = reader.GetFileInfo();
 
                 info.clear();
-                info += std::format("file version: {}.{}\n", hdr->majorVersion, hdr->minorVersion);
-                info += std::format("difat sector: {}\n", hdr->numDIFATSector);
-                info += std::format("directory sector: {}\n", hdr->numDirectorySector);
-                info += std::format("fat sector: {}\n", hdr->numFATSector);
-                info += std::format("mini fat sector: {}\n", hdr->numMiniFATSector);
-                info += '\n';
+                info += format("file version: %d.%d", hdr->majorVersion, hdr->minorVersion) + '\n';
+                info += format("difat sector: %d", hdr->numDIFATSector) + '\n';
+                info += format("directory sector: %d", hdr->numDirectorySector) + '\n';
+                info += format("fat sector: %d", hdr->numFATSector) + '\n';
+                info += format("mini fat sector: %d", hdr->numMiniFATSector) + '\n';
 
                 auto rootEntry = reader.GetRootEntry();
                 std::map<CFB::COMPOUND_FILE_ENTRY const*, size_t> mappedEntry;
@@ -269,7 +280,6 @@ bool CFBReader::Update(const UpdateData& updateData, bool& show)
         }
         fileDialog->Close();
     }
-#endif
 
     return false;
 }
