@@ -13,14 +13,22 @@
 
 struct xxMaxNode : public std::list<xxMaxNode>
 {
+public:
+    typedef std::array<float, 3> Point3;
+    typedef std::array<float, 4> Point4;
+
+public:
     std::string name;
 
-    std::array<float, 3> position = { 0, 0, 0 };
-    std::array<float, 4> rotation = { 0, 0, 0, 1 };
-    std::array<float, 3> scale = { 1, 1, 1 };
+    Point3 position = { 0, 0, 0 };
+    Point4 rotation = { 0, 0, 0, 1 };
+    Point3 scale = { 1, 1, 1 };
 
-    std::vector<uint32_t> indices;
-    std::vector<std::array<float, 3>> vertices;
+    std::vector<Point3> vertices;
+    std::vector<Point3> coordinates;
+    std::vector<std::vector<uint32_t>> vertexIndices;
+    std::vector<std::vector<uint32_t>> coordinateIndices;
+    std::vector<std::vector<uint32_t>> polygonIndices;
 
     std::string text;
 

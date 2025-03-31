@@ -67,11 +67,11 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
         char text[128];
         if (child.empty())
         {
-            snprintf(text, 128, "%s%zd:%s", ICON_FA_FILE_TEXT, i, child.name.c_str());
+            snprintf(text, 128, "%s%zX:%s", ICON_FA_FILE_TEXT, i, child.name.c_str());
         }
         else
         {
-            snprintf(text, 128, "%s%zd:%s", (flags & 1) ? ICON_FA_CIRCLE_O : ICON_FA_CIRCLE, i, child.name.c_str());
+            snprintf(text, 128, "%s%zX:%s", (flags & 1) ? ICON_FA_CIRCLE_O : ICON_FA_CIRCLE, i, child.name.c_str());
         }
 
         ImGui::PushID(&child);
@@ -82,7 +82,7 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
             if (child.classDllName.empty() == false)
             {
                 ImGui::BeginTooltip();
-                ImGui::Text("Index:%zd", i);
+                ImGui::Text("Index:%zX", i);
                 ImGui::Text("Type:%04X", child.type);
                 ImGui::Text("Class:%08X-%08X-%08X-%08X", child.classData.dllIndex, child.classData.classID.first, child.classData.classID.second, child.classData.superClassID);
                 ImGui::Text("DllFile:%s", child.classDllFile.c_str());
@@ -137,6 +137,7 @@ static bool NodeFinder(xxMaxNode& node, std::function<void(std::string& text)> s
                     previous--;
                 if (delta < 0)
                 {
+                    select(previous->text);
                     selected = &(*previous);
                     updated = true;
                     break;
@@ -291,7 +292,8 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
             char line[64];
             for (size_t i = 0; i < 16; ++i)
             {
-                snprintf(line + i * 3, 64 - i * 3, i < count ? "%02x " : "   ", pitch[i]);
+                snprintf(line, 64, "%s%s", line, i < count && i && i % 4 == 0 ? "-" : " ");
+                snprintf(line + i * 3, 64 - i * 3, i < count ? "%02x" : "  ", pitch[i]);
             }
             ImGui::TextUnformatted(line);
             ImGui::SameLine();
@@ -355,6 +357,7 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
         {
             delete root;
             root = nullptr;
+            info.clear();
 
             path = fileDialog->GetFilePathName();
             root = xxMaxReader(path.c_str(), MaxReaderLog);

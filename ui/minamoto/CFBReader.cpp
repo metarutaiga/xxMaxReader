@@ -225,6 +225,7 @@ bool CFBReader::Update(const UpdateData& updateData, bool& show)
         if (fileDialog->IsOk())
         {
             path = fileDialog->GetFilePathName();
+            info.clear();
 
             std::pair<CFB::CompoundFileReader, std::vector<char>>* cfb = getCFB(path);
             if (cfb)

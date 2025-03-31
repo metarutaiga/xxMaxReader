@@ -31,6 +31,8 @@ thread_local jmp_buf compoundfilereader_jmp_buf = {};
 #endif
 
 #define BASENODE_SUPERCLASS_ID          0x00000001
+#define PARAMETER_BLOCK_SUPERCLASS_ID   0x00000008
+#define PARAMETER_BLOCK2_SUPERCLASS_ID  0x00000082
 #define GEOMOBJECT_SUPERCLASS_ID        0x00000010
 #define FLOAT_SUPERCLASS_ID             0x00009003
 #define MATRIX3_SUPERCLASS_ID           0x00009008
@@ -63,6 +65,8 @@ thread_local jmp_buf compoundfilereader_jmp_buf = {};
 #define EPOLYOBJ_CLASS_ID               xxMaxNode::ClassID{0x1bf8338d, 0x192f6098}
 
 #define FLOAT_TYPE                      0x2501, 0x2503, 0x2504, 0x2505
+
+typedef std::array<float, 3> Point3;
 
 template <typename... Args>
 static std::string format(char const* format, Args&&... args)
@@ -177,7 +181,7 @@ static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* e
 template <typename... Args>
 static xxMaxNode::Chunk const* getChunk(xxMaxNode::Chunk const& chunk, Args&&... args)
 {
-    xxMaxNode::Chunk const* output = &chunk;
+    auto* output = &chunk;
     for (uint16_t type : { args... })
     {
         auto it = std::find_if(output->begin(), output->end(), [type](auto const& chunk) { return chunk.type == type; });
@@ -193,7 +197,7 @@ static std::vector<T> getProperty(xxMaxNode::Chunk const& chunk, Args&&... args)
 {
     for (uint16_t type : { args... })
     {
-        xxMaxNode::Chunk const* found = getChunk(chunk, type);
+        auto* found = getChunk(chunk, type);
         if (found == nullptr)
             continue;
         T* data = (T*)found->property.data();
@@ -208,8 +212,8 @@ static std::tuple<std::string, xxMaxNode::ClassData> getClass(xxMaxNode::Chunk c
     if (classDirectory.size() <= classIndex)
         return {};
     auto const& chunk = classDirectory[classIndex];
-    std::vector<uint16_t> propertyClassName = getProperty<uint16_t>(chunk, 0x2042);
-    std::vector<xxMaxNode::ClassData> propertyClassChunk = getProperty<xxMaxNode::ClassData>(chunk, 0x2060);
+    auto propertyClassName = getProperty<uint16_t>(chunk, 0x2042);
+    auto propertyClassChunk = getProperty<xxMaxNode::ClassData>(chunk, 0x2060);
     if (propertyClassChunk.empty())
         return {};
     if (propertyClassName.empty())
@@ -224,8 +228,8 @@ static std::tuple<std::string, std::string> getDll(xxMaxNode::Chunk const& dllDi
     if (dllDirectory.size() <= dllIndex)
         return { "(Unknown)", "(Unknown)" };
     auto const& chunk = dllDirectory[dllIndex];
-    std::vector<uint16_t> propertyDllFile = getProperty<uint16_t>(chunk, 0x2037);
-    std::vector<uint16_t> propertyDllName = getProperty<uint16_t>(chunk, 0x2039);
+    auto propertyDllFile = getProperty<uint16_t>(chunk, 0x2037);
+    auto propertyDllName = getProperty<uint16_t>(chunk, 0x2039);
     if (propertyDllFile.empty() || propertyDllName.empty())
         return { "(Unknown)", "(Unknown)" };
     return { UTF16ToUTF8(propertyDllFile.data(), propertyDllFile.size()), UTF16ToUTF8(propertyDllName.data(), propertyDllName.size()) };
@@ -234,10 +238,10 @@ static std::tuple<std::string, std::string> getDll(xxMaxNode::Chunk const& dllDi
 static std::map<uint32_t, uint32_t> getLink(xxMaxNode::Chunk const& chunk)
 {
     std::map<uint32_t, uint32_t> link;
-    std::vector<uint32_t> propertyLink2034 = getProperty<uint32_t>(chunk, 0x2034);
+    auto propertyLink2034 = getProperty<uint32_t>(chunk, 0x2034);
+    auto propertyLink2035 = getProperty<uint32_t>(chunk, 0x2035);
     for (uint32_t i = 0; i < propertyLink2034.size(); ++i)
         link[i] = propertyLink2034[i];
-    std::vector<uint32_t> propertyLink2035 = getProperty<uint32_t>(chunk, 0x2035);
     for (uint32_t i = 1; i + 1 < propertyLink2035.size(); i += 2)
         link[propertyLink2035[i + 0]] = propertyLink2035[i + 1];
     return link;
@@ -246,8 +250,8 @@ static std::map<uint32_t, uint32_t> getLink(xxMaxNode::Chunk const& chunk)
 template <typename... Args>
 static xxMaxNode::Chunk const* getLinkChunk(xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, Args&&... args)
 {
-    xxMaxNode::Chunk const* output = &chunk;
-    std::map<uint32_t, uint32_t> link = getLink(*output);
+    auto* output = &chunk;
+    auto link = getLink(*output);
     for (uint32_t index : { args... })
     {
         auto it = link.find(index);
@@ -286,6 +290,81 @@ static void eulerToQuaternion(float quaternion[4], float euler[3])
     quaternion[3] = (cx * cy * cz + sx * sy * sz);
 }
 
+static std::vector<std::tuple<float, int, Point3>> getParamBlock(xxMaxNode::Chunk const& paramBlock)
+{
+    std::vector<std::tuple<float, int, Point3>> output;
+    switch (paramBlock.classData.superClassID)
+    {
+    case PARAMETER_BLOCK_SUPERCLASS_ID:
+    {
+        auto propertyCount = getProperty<int>(paramBlock, 0x0001);
+        if (propertyCount.empty())
+            return output;
+        unsigned int count = propertyCount.front();
+        for (auto const& chunk : paramBlock)
+        {
+            if (chunk.type == 0x0002)
+            {
+                auto propertyFloat = getProperty<float>(chunk, 0x0100);
+                auto propertyInt = getProperty<int>(chunk, 0x0101);
+                auto propertyRGBA = getProperty<Point3>(chunk, 0x0102);
+                auto propertyPoint3 = getProperty<Point3>(chunk, 0x0103);
+                auto propertyBool = getProperty<bool>(chunk, 0x0104);
+                output.push_back({});
+                auto& [f, i, p] = output.back();
+                if (propertyFloat.empty() == false)     f = propertyFloat.front();
+                if (propertyInt.empty() == false)       i = propertyInt.front();
+                if (propertyRGBA.empty() == false)      p = propertyRGBA.front();
+                if (propertyPoint3.empty() == false)    p = propertyPoint3.front();
+                if (propertyBool.empty() == false)      i = propertyBool.front();
+            }
+            if (output.size() >= count)
+                break;
+        }
+        break;
+    }
+    case PARAMETER_BLOCK2_SUPERCLASS_ID:
+    {
+        for (auto const& chunk : paramBlock)
+        {
+            if (chunk.property.size() < 19)
+                continue;
+            if (chunk.type == 0x000E || chunk.type == 0x100E)
+            {
+                uint16_t index = 0;
+                uint32_t type = 0;
+                memcpy(&index, chunk.property.data() + 0, sizeof(uint16_t));
+                memcpy(&type, chunk.property.data() + 2, sizeof(uint32_t));
+                if (output.size() <= index)
+                    output.resize(index + 1);
+                auto& [f, i, p] = output[index];
+                switch (type)
+                {
+                case 0: // TYPE_FLOAT
+                case 5: // TYPE_ANGLE
+                case 6: // TYPE_PCNT_FRAC
+                case 7: // TYPE_WORLD
+                    memcpy(&f, chunk.property.data() + 15, sizeof(float));
+                    break;
+                case 1: // TYPE_INT
+                case 4: // TYPE_BOOL
+                    memcpy(&i, chunk.property.data() + 15, sizeof(int));
+                    break;
+                case 2: // TYPE_RGBA
+                case 3: // TYPE_POINT3
+                    memcpy(&p, chunk.property.data() + 15, sizeof(Point3));
+                    break;
+                }
+            }
+        }
+        break;
+    }
+    default:
+        break;
+    }
+    return output;
+}
+
 static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, xxMaxNode& node)
 {
     // ????????-00002007-00000000-00009003 Bezier Float             HYBRIDINTERP_FLOAT_CLASS_ID + FLOAT_SUPERCLASS_ID
@@ -299,7 +378,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
     // FFFFFFFF-00442312-00000000-0000900B TCB Position     TCBINTERP_POSITION_CLASS_ID + POSITION_SUPERCLASS_ID
     for (uint32_t i = 0; i < 1; ++i)
     {
-        xxMaxNode::Chunk const* positionXYZ = getLinkChunk(scene, chunk, 0);
+        auto* positionXYZ = getLinkChunk(scene, chunk, 0);
         if (positionXYZ == nullptr)
             continue;
         auto& classData = positionXYZ->classData;
@@ -309,15 +388,15 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
             {
                 for (uint32_t i = 0; i < 3; ++i)
                 {
-                    xxMaxNode::Chunk const* position = getLinkChunk(scene, *positionXYZ, i);
+                    auto* position = getLinkChunk(scene, *positionXYZ, i);
                     if (position == nullptr)
                         continue;
                     if (checkClass(log, *position, HYBRIDINTERP_FLOAT_CLASS_ID, FLOAT_SUPERCLASS_ID) == false)
                         continue;
-                    xxMaxNode::Chunk const* chunk7127 = getChunk(*position, 0x7127);
+                    auto* chunk7127 = getChunk(*position, 0x7127);
                     if (chunk7127)
                         position = chunk7127;
-                    std::vector<float> propertyFloat = getProperty<float>(*position, FLOAT_TYPE);
+                    auto propertyFloat = getProperty<float>(*position, FLOAT_TYPE);
                     if (propertyFloat.size() >= 1)
                     {
                         node.position[i] = propertyFloat[0];
@@ -331,10 +410,10 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
             if (classData.classID == LININTERP_POSITION_CLASS_ID ||
                 classData.classID == TCBINTERP_POSITION_CLASS_ID)
             {
-                xxMaxNode::Chunk const* chunk7127 = getChunk(*positionXYZ, 0x7127);
+                auto* chunk7127 = getChunk(*positionXYZ, 0x7127);
                 if (chunk7127)
                     positionXYZ = chunk7127;
-                std::vector<float> propertyFloat = getProperty<float>(*positionXYZ, FLOAT_TYPE);
+                auto propertyFloat = getProperty<float>(*positionXYZ, FLOAT_TYPE);
                 if (propertyFloat.size() >= 3)
                 {
                     node.position[0] = propertyFloat[0];
@@ -355,7 +434,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
     // FFFFFFFF-00442313-00000000-0000900C TCB Rotation     TCBINTERP_ROTATION_CLASS_ID + ROTATION_SUPERCLASS_ID
     for (uint32_t i = 0; i < 1; ++i)
     {
-        xxMaxNode::Chunk const* rotationXYZ = getLinkChunk(scene, chunk, 1);
+        auto* rotationXYZ = getLinkChunk(scene, chunk, 1);
         if (rotationXYZ == nullptr)
             continue;
         auto& classData = rotationXYZ->classData;
@@ -365,15 +444,15 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
             {
                 for (uint32_t i = 0; i < 3; ++i)
                 {
-                    xxMaxNode::Chunk const* rotation = getLinkChunk(scene, *rotationXYZ, i);
+                    auto* rotation = getLinkChunk(scene, *rotationXYZ, i);
                     if (rotation == nullptr)
                         continue;
                     if (checkClass(log, *rotation, HYBRIDINTERP_FLOAT_CLASS_ID, FLOAT_SUPERCLASS_ID) == false)
                         continue;
-                    xxMaxNode::Chunk const* chunk7127 = getChunk(*rotation, 0x7127);
+                    auto* chunk7127 = getChunk(*rotation, 0x7127);
                     if (chunk7127)
                         rotation = chunk7127;
-                    std::vector<float> propertyFloat = getProperty<float>(*rotation, FLOAT_TYPE);
+                    auto propertyFloat = getProperty<float>(*rotation, FLOAT_TYPE);
                     if (propertyFloat.size() >= 1)
                     {
                         node.rotation[i] = propertyFloat[0];
@@ -388,10 +467,10 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
             if (classData.classID == LININTERP_ROTATION_CLASS_ID ||
                 classData.classID == TCBINTERP_ROTATION_CLASS_ID)
             {
-                xxMaxNode::Chunk const* chunk7127 = getChunk(*rotationXYZ, 0x7127);
+                auto* chunk7127 = getChunk(*rotationXYZ, 0x7127);
                 if (chunk7127)
                     rotationXYZ = chunk7127;
-                std::vector<float> propertyFloat = getProperty<float>(*rotationXYZ, FLOAT_TYPE);
+                auto propertyFloat = getProperty<float>(*rotationXYZ, FLOAT_TYPE);
                 if (propertyFloat.size() >= 4)
                 {
                     node.rotation[0] = propertyFloat[0];
@@ -418,7 +497,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
     // FFFFFFFF-00442315-00000000-0000900D TCB Scale    TCBINTERP_SCALE_CLASS_ID + SCALE_SUPERCLASS_ID
     for (uint32_t i = 0; i < 1; ++i)
     {
-        xxMaxNode::Chunk const* scale = getLinkChunk(scene, chunk, 2);
+        auto* scale = getLinkChunk(scene, chunk, 2);
         if (scale == nullptr)
             continue;
         auto& classData = scale->classData;
@@ -428,10 +507,10 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                 classData.classID == HYBRIDINTERP_SCALE_CLASS_ID ||
                 classData.classID == TCBINTERP_SCALE_CLASS_ID)
             {
-                xxMaxNode::Chunk const* chunk7127 = getChunk(*scale, 0x7127);
+                auto* chunk7127 = getChunk(*scale, 0x7127);
                 if (chunk7127)
                     scale = chunk7127;
-                std::vector<float> propertyFloat = getProperty<float>(*scale, FLOAT_TYPE);
+                auto propertyFloat = getProperty<float>(*scale, FLOAT_TYPE);
                 if (propertyFloat.size() >= 3)
                 {
                     node.scale[0] = propertyFloat[0];
@@ -455,12 +534,27 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
 
 static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, xxMaxNode& node)
 {
-    if (chunk.classData.superClassID != GEOMOBJECT_SUPERCLASS_ID)
+    auto* pChunk = &chunk;
+    if ((*pChunk).classData.superClassID != GEOMOBJECT_SUPERCLASS_ID)
+    {
+        if ((*pChunk).type != 0x2032)
+            return;
+        auto link = getLink(*pChunk);
+        for (auto [_, index] : link)
+        {
+            if (scene.size() <= index)
+                continue;
+            auto const& chunk = scene[index];
+            if (pChunk == &chunk)
+                continue;
+            getPrimitive(log, scene, chunk, node);
+        }
         return;
-    xxMaxNode::Chunk const* pParamBlock = getLinkChunk(scene, chunk, 0);
+    }
+    auto* pParamBlock = getLinkChunk(scene, *pChunk, 0);
     if (pParamBlock == nullptr)
         return;
-    xxMaxNode::Chunk const& paramBlock = (*pParamBlock);
+    auto paramBlock = getParamBlock(*pParamBlock);
 
     // ????????-00000010-00000000-00000010 Box              BOXOBJ_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
     // ????????-00000011-00000000-00000010 Sphere           SPHERE_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
@@ -473,204 +567,300 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
     // ????????-081f1dfc-77566f65-00000010 Plane            PLANE_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
     // ????????-e44f10b3-00000000-00000010 Editable Mesh    EDITTRIOBJ_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
     // ????????-1bf8338d-192f6098-00000010 Editable Poly    EPOLYOBJ_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
-    switch (class64(chunk.classData.classID))
+    switch (class64((*pChunk).classData.classID))
     {
     case class64(BOXOBJ_CLASS_ID):
-        if (paramBlock.size() > 4)
+        if (paramBlock.size() > 5)
         {
-            std::vector<float> propertyLength = getProperty<float>(paramBlock[2], 0x0100);
-            std::vector<float> propertyWidth = getProperty<float>(paramBlock[3], 0x0100);
-            std::vector<float> propertyHeight = getProperty<float>(paramBlock[4], 0x0100);
-            if (propertyLength.empty() == false && propertyWidth.empty() == false && propertyHeight.empty() == false)
+            float length = std::get<float>(paramBlock[0]);
+            float width = std::get<float>(paramBlock[1]);
+            float height = std::get<float>(paramBlock[2]);
+            int lengthSegments = std::get<int>(paramBlock[3]);
+            int widthSegments = std::get<int>(paramBlock[4]);
+            int heightSegments = std::get<int>(paramBlock[5]);
+
+            node.vertices =
             {
-                float length = propertyLength.front();
-                float width = propertyWidth.front();
-                float height = propertyHeight.front();
+                { -length, -width, -height },
+                {  length, -width, -height },
+                { -length,  width, -height },
+                {  length,  width, -height },
+                { -length, -width,  height },
+                {  length, -width,  height },
+                { -length,  width,  height },
+                {  length,  width,  height },
+            };
 
-                node.vertices =
-                {
-                    { -length, -width, -height },
-                    {  length, -width, -height },
-                    { -length,  width, -height },
-                    {  length,  width, -height },
-                    { -length, -width,  height },
-                    {  length, -width,  height },
-                    { -length,  width,  height },
-                    {  length,  width,  height },
-                };
-
-                node.text += format("Primitive : %s", "Box") + '\n';
-                node.text += format("Length : %f", length) + '\n';
-                node.text += format("Width : %f", width) + '\n';
-                node.text += format("Height : %f", height) + '\n';
-                return;
-            }
+            node.text += format("Primitive : %s", "Box") + '\n';
+            node.text += format("Length : %f", length) + '\n';
+            node.text += format("Width : %f", width) + '\n';
+            node.text += format("Height : %f", height) + '\n';
+            node.text += format("Length Segments : %d", lengthSegments) + '\n';
+            node.text += format("Width Segments : %d", widthSegments) + '\n';
+            node.text += format("Height Segments : %d", heightSegments) + '\n';
+            return;
         }
-        checkClass(log, paramBlock, {}, 0);
+        checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(SPHERE_CLASS_ID):
-        if (paramBlock.size() > 2)
+        if (paramBlock.size() > 4)
         {
-            std::vector<float> propertyRadius = getProperty<float>(paramBlock[2], 0x0100);
-            if (propertyRadius.empty() == false)
-            {
-                float radius = propertyRadius.front();
+            float radius = std::get<float>(paramBlock[0]);
+            int segments = std::get<int>(paramBlock[1]);
+            bool smooth = std::get<int>(paramBlock[2]);
+            float hemisphere = std::get<float>(paramBlock[3]);
+            int chopSquash = std::get<int>(paramBlock[4]);
 
-                node.text += format("Primitive : %s", "Sphere") + '\n';
-                node.text += format("Radius : %f", radius) + '\n';
-                return;
-            }
+            node.text += format("Primitive : %s", "Sphere") + '\n';
+            node.text += format("Radius : %f", radius) + '\n';
+            node.text += format("Segments : %d", segments) + '\n';
+            node.text += format("Smooth : %s", smooth ? "true" : "false") + '\n';
+            node.text += format("Hemisphere : %f", hemisphere) + '\n';
+            node.text += format("ChopSquash : %s", chopSquash == 0 ? "Chop" : "Squash") + '\n';
+            return;
         }
-        checkClass(log, paramBlock, {}, 0);
+        checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(CYLINDER_CLASS_ID):
-        if (paramBlock.size() > 3)
+        if (paramBlock.size() > 5)
         {
-            std::vector<float> propertyRadius = getProperty<float>(paramBlock[2], 0x0100);
-            std::vector<float> propertyHeight = getProperty<float>(paramBlock[3], 0x0100);
-            if (propertyRadius.empty() == false && propertyHeight.empty() == false)
-            {
-                float radius = propertyRadius.front();
-                float height = propertyHeight.front();
+            float radius = std::get<float>(paramBlock[0]);
+            float height = std::get<float>(paramBlock[1]);
+            int heightSegments = std::get<int>(paramBlock[2]);
+            int capSegments = std::get<int>(paramBlock[3]);
+            int sides = std::get<int>(paramBlock[4]);
+            bool smooth = std::get<int>(paramBlock[5]);
 
-                node.text += format("Primitive : %s", "Cylinder") + '\n';
-                node.text += format("Radius : %f", radius) + '\n';
-                node.text += format("Height : %f", height) + '\n';
-                return;
-            }
+            node.text += format("Primitive : %s", "Cylinder") + '\n';
+            node.text += format("Radius : %f", radius) + '\n';
+            node.text += format("Height : %f", height) + '\n';
+            node.text += format("Height Segments : %d", heightSegments) + '\n';
+            node.text += format("Cap Segments : %d", capSegments) + '\n';
+            node.text += format("Sides : %d", sides) + '\n';
+            node.text += format("Smooth : %s", smooth ? "true" : "false") + '\n';
+            return;
         }
-        checkClass(log, paramBlock, {}, 0);
+        checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(TORUS_CLASS_ID):
-        if (paramBlock.size() > 3)
+        if (paramBlock.size() > 6)
         {
-            std::vector<float> propertyRadius1 = getProperty<float>(paramBlock[2], 0x0100);
-            std::vector<float> propertyRadius2 = getProperty<float>(paramBlock[3], 0x0100);
-            if (propertyRadius1.empty() == false && propertyRadius2.empty() == false)
-            {
-                float radius1 = propertyRadius1.front();
-                float radius2 = propertyRadius2.front();
+            float radius1 = std::get<float>(paramBlock[0]);
+            float radius2 = std::get<float>(paramBlock[1]);
+            float rotation = std::get<float>(paramBlock[2]);
+            float twist = std::get<float>(paramBlock[3]);
+            int segments = std::get<int>(paramBlock[4]);
+            int sides = std::get<int>(paramBlock[5]);
+            int smooth = std::get<int>(paramBlock[6]);
 
-                node.text += format("Primitive : %s", "Torus") + '\n';
-                node.text += format("Radius1 : %f", radius1) + '\n';
-                node.text += format("Radius2 : %f", radius2) + '\n';
-                return;
-            }
+            node.text += format("Primitive : %s", "Torus") + '\n';
+            node.text += format("Radius1 : %f", radius1) + '\n';
+            node.text += format("Radius2 : %f", radius2) + '\n';
+            node.text += format("Rotation : %f", rotation) + '\n';
+            node.text += format("Twist : %f", twist) + '\n';
+            node.text += format("Segments : %d", segments) + '\n';
+            node.text += format("Sides : %d", sides) + '\n';
+            node.text += format("Smooth : %d", smooth) + '\n';
+            return;
         }
-        checkClass(log, paramBlock, {}, 0);
+        checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(CONE_CLASS_ID):
-        if (paramBlock.size() > 4)
+        if (paramBlock.size() > 6)
         {
-            std::vector<float> propertyRadius1 = getProperty<float>(paramBlock[2], 0x0100);
-            std::vector<float> propertyRadius2 = getProperty<float>(paramBlock[3], 0x0100);
-            std::vector<float> propertyHeight = getProperty<float>(paramBlock[4], 0x0100);
-            if (propertyRadius1.empty() == false && propertyRadius2.empty() == false && propertyHeight.empty() == false)
-            {
-                float radius1 = propertyRadius1.front();
-                float radius2 = propertyRadius2.front();
-                float height = propertyHeight.front();
+            float radius1 = std::get<float>(paramBlock[0]);
+            float radius2 = std::get<float>(paramBlock[1]);
+            float height = std::get<float>(paramBlock[2]);
+            int heightSegments = std::get<int>(paramBlock[3]);
+            int capSegments = std::get<int>(paramBlock[4]);
+            int sides = std::get<int>(paramBlock[5]);
+            bool smooth = std::get<int>(paramBlock[6]);
 
-                node.text += format("Primitive : %s", "Cone") + '\n';
-                node.text += format("Radius1 : %f", radius1) + '\n';
-                node.text += format("Radius2 : %f", radius2) + '\n';
-                node.text += format("Height : %f", height) + '\n';
-                return;
-            }
+            node.text += format("Primitive : %s", "Cone") + '\n';
+            node.text += format("Radius1 : %f", radius1) + '\n';
+            node.text += format("Radius2 : %f", radius2) + '\n';
+            node.text += format("Height : %f", height) + '\n';
+            node.text += format("Height Segments : %d", heightSegments) + '\n';
+            node.text += format("Cap Segments : %d", capSegments) + '\n';
+            node.text += format("Sides : %d", sides) + '\n';
+            node.text += format("Smooth : %s", smooth ? "true" : "false") + '\n';
+            return;
         }
-        checkClass(log, paramBlock, {}, 0);
+        checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(GSPHERE_CLASS_ID):
-        if (paramBlock.size() > 2)
+        if (paramBlock.size() > 4)
         {
-            std::vector<float> propertyRadius = getProperty<float>(paramBlock[2], 0x0100);
-            if (propertyRadius.empty() == false)
-            {
-                float radius = propertyRadius.front();
+            float radius = std::get<float>(paramBlock[0]);
+            int segments = std::get<int>(paramBlock[1]);
+            int geodesicBaseType = std::get<int>(paramBlock[2]);
+            bool smooth = std::get<int>(paramBlock[3]);
+            bool hemisphere = std::get<int>(paramBlock[4]);
 
-                node.text += format("Primitive : %s", "GeoSphere") + '\n';
-                node.text += format("Radius : %f", radius) + '\n';
-                return;
-            }
+            node.text += format("Primitive : %s", "GeoSphere") + '\n';
+            node.text += format("Radius : %f", radius) + '\n';
+            node.text += format("Segments : %d", segments) + '\n';
+            node.text += format("Geodesic Base Type : %d", geodesicBaseType) + '\n';
+            node.text += format("Smooth : %f", smooth ? "true" : "false") + '\n';
+            node.text += format("Hemisphere : %f", hemisphere ? "true" : "false") + '\n';
+            return;
         }
-        checkClass(log, paramBlock, {}, 0);
+        checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(TUBE_CLASS_ID):
-        if (paramBlock.size() > 4)
+        if (paramBlock.size() > 6)
         {
-            std::vector<float> propertyRadius1 = getProperty<float>(paramBlock[2], 0x0100);
-            std::vector<float> propertyRadius2 = getProperty<float>(paramBlock[3], 0x0100);
-            std::vector<float> propertyHeight = getProperty<float>(paramBlock[4], 0x0100);
-            if (propertyRadius1.empty() == false && propertyRadius2.empty() == false && propertyHeight.empty() == false)
-            {
-                float radius1 = propertyRadius1.front();
-                float radius2 = propertyRadius2.front();
-                float height = propertyHeight.front();
+            float radius1 = std::get<float>(paramBlock[0]);
+            float radius2 = std::get<float>(paramBlock[1]);
+            float height = std::get<float>(paramBlock[2]);
+            int heightSegments = std::get<int>(paramBlock[3]);
+            int capSegments = std::get<int>(paramBlock[4]);
+            int sides = std::get<int>(paramBlock[5]);
+            bool smooth = std::get<int>(paramBlock[6]);
 
-                node.text += format("Primitive : %s", "Tube") + '\n';
-                node.text += format("Radius1 : %f", radius1) + '\n';
-                node.text += format("Radius2 : %f", radius2) + '\n';
-                node.text += format("Height : %f", height) + '\n';
-                return;
-            }
+            node.text += format("Primitive : %s", "Tube") + '\n';
+            node.text += format("Radius1 : %f", radius1) + '\n';
+            node.text += format("Radius2 : %f", radius2) + '\n';
+            node.text += format("Height : %f", height) + '\n';
+            node.text += format("Height Segments : %d", heightSegments) + '\n';
+            node.text += format("Cap Segments : %d", capSegments) + '\n';
+            node.text += format("Sides : %d", sides) + '\n';
+            node.text += format("Smooth : %s", smooth ? "true" : "false") + '\n';
+            return;
         }
-        checkClass(log, paramBlock, {}, 0);
+        checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(PYRAMID_CLASS_ID):
-        if (paramBlock.size() > 4)
+        if (paramBlock.size() > 5)
         {
-            std::vector<float> propertyWidth = getProperty<float>(paramBlock[2], 0x0100);
-            std::vector<float> propertyDepth = getProperty<float>(paramBlock[3], 0x0100);
-            std::vector<float> propertyHeight = getProperty<float>(paramBlock[4], 0x0100);
-            if (propertyWidth.empty() == false && propertyDepth.empty() == false && propertyHeight.empty() == false)
-            {
-                float width = propertyWidth.front();
-                float depth = propertyDepth.front();
-                float height = propertyHeight.front();
+            float width = std::get<float>(paramBlock[0]);
+            float depth = std::get<float>(paramBlock[1]);
+            float height = std::get<float>(paramBlock[2]);
+            int widthSegments = std::get<int>(paramBlock[3]);
+            int depthSegments = std::get<int>(paramBlock[4]);
+            int heightSegments = std::get<int>(paramBlock[5]);
 
-                node.text += format("Primitive : %s", "Pyramid") + '\n';
-                node.text += format("Width : %f", width) + '\n';
-                node.text += format("Depth : %f", depth) + '\n';
-                node.text += format("Height : %f", height) + '\n';
-                return;
-            }
+            node.text += format("Primitive : %s", "Pyramid") + '\n';
+            node.text += format("Width : %f", width) + '\n';
+            node.text += format("Depth : %f", depth) + '\n';
+            node.text += format("Height : %f", height) + '\n';
+            node.text += format("Width Segments : %d", widthSegments) + '\n';
+            node.text += format("Depth Segments : %d", depthSegments) + '\n';
+            node.text += format("Height Segments : %d", heightSegments) + '\n';
+            return;
         }
-        checkClass(log, paramBlock, {}, 0);
+        checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(PLANE_CLASS_ID):
         if (paramBlock.size() > 3)
         {
-            std::vector<float> propertyLength = getProperty<float>(paramBlock[2], 0x0100);
-            std::vector<float> propertyWidth = getProperty<float>(paramBlock[3], 0x0100);
-            if (propertyLength.empty() == false && propertyWidth.empty() == false)
+            float length = std::get<float>(paramBlock[0]);
+            float width = std::get<float>(paramBlock[1]);
+            int lengthSegments = std::get<int>(paramBlock[2]);
+            int widthSegments = std::get<int>(paramBlock[3]);
+
+            node.vertices =
             {
-                float length = propertyLength.front();
-                float width = propertyWidth.front();
+                { -length, -width, 0 },
+                {  length, -width, 0 },
+                { -length,  width, 0 },
+                {  length,  width, 0 },
+            };
 
-                node.vertices =
-                {
-                    { -length, -width, 0 },
-                    {  length, -width, 0 },
-                    { -length,  width, 0 },
-                    {  length,  width, 0 },
-                };
-
-                node.text += format("Primitive : %s", "Plane") + '\n';
-                node.text += format("Length : %f", length) + '\n';
-                node.text += format("Width : %f", width) + '\n';
-                return;
-            }
+            node.text += format("Primitive : %s", "Plane") + '\n';
+            node.text += format("Length : %f", length) + '\n';
+            node.text += format("Width : %f", width) + '\n';
+            node.text += format("Length Segments : %d", lengthSegments) + '\n';
+            node.text += format("Width Segments : %d", widthSegments) + '\n';
+            return;
         }
-        checkClass(log, paramBlock, {}, 0);
+        checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(EDITTRIOBJ_CLASS_ID):
         break;
     case class64(EPOLYOBJ_CLASS_ID):
-        break;
+    {
+        auto* pPolyChunk = getChunk(*pChunk, 0x08FE);
+        if (pPolyChunk == nullptr)
+            break;
+        auto& polyChunk = (*pPolyChunk);
+
+        auto vertices = getProperty<float>(polyChunk, 0x0100);
+        for (size_t i = 1; i + 3 < vertices.size(); i += 4)
+        {
+            node.vertices.push_back({vertices[i + 1], vertices[i + 2], vertices[1 + 3]});
+        }
+
+        auto vertexIndices = getProperty<uint16_t>(polyChunk, 0x011A);
+        for (size_t i = 2; i + 1 < vertexIndices.size(); i += 2)
+        {
+            uint32_t count = (vertexIndices[i] | vertexIndices[i + 1] << 16) * 2;
+            if (i + count >= vertexIndices.size())
+                break;
+            i += 2;
+            node.vertexIndices.push_back({});
+            for (size_t j = i, list = i + count; j < list; j += 2)
+                node.vertexIndices.back().push_back(vertexIndices[j] | vertexIndices[j + 1] << 16);
+            i += count;
+            uint16_t flags = vertexIndices[i];
+            i += 1;
+            if (flags & 0x01)   i += 2;
+            if (flags & 0x08)   i += 1;
+            if (flags & 0x10)   i += 2;
+            if (flags & 0x20)   i += 2 * (count - 6);
+            i -= 2;
+        }
+
+        auto coordinates = getProperty<float>(polyChunk, 0x0128);
+        for (size_t i = 1; i + 2 < coordinates.size(); i += 3)
+        {
+            node.coordinates.push_back({coordinates[i], coordinates[i + 1], coordinates[1 + 2]});
+        }
+
+        auto coordinateIndices = getProperty<uint32_t>(polyChunk, 0x012B);
+        for (size_t i = 0; i < coordinateIndices.size(); ++i)
+        {
+            uint32_t count = coordinateIndices[i];
+            if (i + count >= coordinateIndices.size())
+                break;
+            i += 1;
+            node.coordinateIndices.push_back({});
+            for (size_t j = i, list = i + count; j < list; ++j)
+                node.coordinateIndices.back().push_back(coordinateIndices[j]);
+            i += count - 1;
+        }
+
+        auto polygonsIndices = getProperty<uint32_t>(polyChunk, 0x0310);
+        for (size_t i = 0; i < polygonsIndices.size(); ++i)
+        {
+            uint32_t count = polygonsIndices[i];
+            if (i + count >= polygonsIndices.size())
+                break;
+            i += 1;
+            node.polygonIndices.push_back({});
+            for (size_t j = i, list = i + count; j < list; ++j)
+                node.polygonIndices.back().push_back(polygonsIndices[j]);
+            i += count - 1;
+        }
+
+//      if (node.vertices.size() && node.coordinateIndices.size() && node.vertices.size() != node.coordinateIndices.size())
+//      {
+//          log("%s is corrupted (%zd:%zd)", "Editable Poly", node.vertices.size(), node.coordinateIndices.size());
+//          log("\n");
+//      }
+
+        node.text += format("Primitive : %s", "Editable Poly") + '\n';
+        node.text += format("Vertices : %zd", node.vertices.size()) + '\n';
+        node.text += format("Coordinates : %zd", node.coordinates.size()) + '\n';
+        node.text += format("Vertex Indices : %zd", node.vertexIndices.size()) + '\n';
+        node.text += format("Coordinate Indices : %zd", node.coordinateIndices.size()) + '\n';
+        node.text += format("Polygon Indices : %zd", node.polygonIndices.size()) + '\n';
+        return;
+    }
     default:
         break;
     }
-    checkClass(log, chunk, {}, 0);
+    checkClass(log, *pChunk, {}, 0);
 }
 
 xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
@@ -757,9 +947,18 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
     auto& scene = root->scene->front();
     switch (scene.type)
     {
+                    // [ ] 3ds Max 8
     case 0x200E:    // [x] 3ds Max 9
     case 0x200F:    // [x] 3ds Max 2008
+                    // [ ] 3ds Max 2009
+                    // [ ] 3ds Max 2010
+                    // [ ] 3ds Max 2011
+                    // [ ] 3ds Max 2012
+                    // [ ] 3ds Max 2013
+                    // [ ] 3ds Max 2014
     case 0x2020:    // [x] 3ds Max 2015
+                    // [ ] 3ds Max 2016
+                    // [ ] 3ds Max 2017
     case 0x2023:    // [x] 3ds Max 2018
         break;
     default:
@@ -777,8 +976,11 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
         auto [className, classData] = getClass(*root->classDirectory, chunk.type);
         if (className.empty())
         {
-            log("Class %04X is not found! (Chunk:%d)", chunk.type, i);
-            log("\n");
+            if (chunk.type != 0x2032)
+            {
+                log("Class %04X is not found! (Chunk:%X)", chunk.type, i);
+                log("\n");
+            }
             continue;
         }
         auto [dllFile, dllName] = getDll(*root->dllDirectory, classData.dllIndex);
