@@ -97,25 +97,21 @@ static std::vector<char> uncompress(std::vector<char> const& input)
     std::vector<char> output(input.size());
     stream.next_out = (Bytef*)output.data();
     stream.avail_out = (uint)output.size();
-    for (;;)
-    {
+    for (;;) {
         int result = inflate(&stream, Z_NO_FLUSH);
-        if (result == Z_BUF_ERROR)
-        {
+        if (result == Z_BUF_ERROR) {
             output.push_back(0);
             output.resize(output.capacity());
             stream.next_out = (Bytef*)(output.data() + stream.total_out);
             stream.avail_out = (uint)(output.size() - stream.total_out);
             continue;
         }
-        if (result == Z_STREAM_END)
-        {
+        if (result == Z_STREAM_END) {
             output.resize(stream.total_out);
             inflateEnd(&stream);
             return output;
         }
-        if (result == Z_OK)
-        {
+        if (result == Z_OK) {
             continue;
         }
         break;
@@ -135,8 +131,7 @@ static constexpr uint64_t class64(xxMaxNode::ClassID classID)
 
 static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* end)
 {
-    for (;;)
-    {
+    for (;;) {
         bool children = false;
         char const* header = begin;
         if (begin + 6 > end)
@@ -145,21 +140,18 @@ static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* e
         uint64_t length = 0;
         memcpy(&type, begin, 2); begin += 2;
         memcpy(&length, begin, 4); begin += 4;
-        if (length == 0)
-        {
+        if (length == 0) {
             if (begin + 8 > end)
                 break;
             memcpy(&length, begin, 8); begin += 8;
             if (length == 0)
                 break;
-            if (length & 0x8000000000000000ull)
-            {
+            if (length & 0x8000000000000000ull) {
                 length &= 0x7FFFFFFFFFFFFFFFull;
                 children = true;
             }
         }
-        else if (length & 0x80000000ull)
-        {
+        else if (length & 0x80000000ull) {
             length &= 0x7FFFFFFFull;
             children = true;
         }
@@ -169,12 +161,10 @@ static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* e
         xxMaxNode::Chunk child;
         child.type = type;
         child.name = format("%04X", type);
-        if (children)
-        {
+        if (children) {
             parseChunk(child, begin, next);
         }
-        else
-        {
+        else {
             child.property.assign(begin, next);
         }
         chunk.emplace_back(std::move(child));
@@ -186,8 +176,7 @@ template <typename... Args>
 static xxMaxNode::Chunk const* getChunk(xxMaxNode::Chunk const& chunk, Args&&... args)
 {
     auto* output = &chunk;
-    for (uint16_t type : { args... })
-    {
+    for (uint16_t type : { args... }) {
         auto it = std::find_if(output->begin(), output->end(), [type](auto const& chunk) { return chunk.type == type; });
         if (it == output->end())
             return nullptr;
@@ -199,8 +188,7 @@ static xxMaxNode::Chunk const* getChunk(xxMaxNode::Chunk const& chunk, Args&&...
 template <typename T = char, typename... Args>
 static std::vector<T> getProperty(xxMaxNode::Chunk const& chunk, Args&&... args)
 {
-    for (uint16_t type : { args... })
-    {
+    for (uint16_t type : { args... }) {
         auto* found = getChunk(chunk, type);
         if (found == nullptr)
             continue;
@@ -256,8 +244,7 @@ static xxMaxNode::Chunk const* getLinkChunk(xxMaxNode::Chunk const& scene, xxMax
 {
     auto* output = &chunk;
     auto link = getLink(*output);
-    for (uint32_t index : { args... })
-    {
+    for (uint32_t index : { args... }) {
         auto it = link.find(index);
         if (it == link.end())
             return nullptr;
@@ -297,18 +284,14 @@ static void eulerToQuaternion(float quaternion[4], float euler[3])
 static std::vector<std::tuple<float, int, Point3>> getParamBlock(xxMaxNode::Chunk const& paramBlock)
 {
     std::vector<std::tuple<float, int, Point3>> output;
-    switch (paramBlock.classData.superClassID)
-    {
-    case PARAMETER_BLOCK_SUPERCLASS_ID:
-    {
+    switch (paramBlock.classData.superClassID) {
+    case PARAMETER_BLOCK_SUPERCLASS_ID: {
         auto propertyCount = getProperty<int>(paramBlock, 0x0001);
         if (propertyCount.empty())
             return output;
         unsigned int count = propertyCount.front();
-        for (auto const& chunk : paramBlock)
-        {
-            if (chunk.type == 0x0002)
-            {
+        for (auto const& chunk : paramBlock) {
+            if (chunk.type == 0x0002) {
                 auto propertyFloat = getProperty<float>(chunk, 0x0100);
                 auto propertyInt = getProperty<int>(chunk, 0x0101);
                 auto propertyRGBA = getProperty<Point3>(chunk, 0x0102);
@@ -327,14 +310,11 @@ static std::vector<std::tuple<float, int, Point3>> getParamBlock(xxMaxNode::Chun
         }
         break;
     }
-    case PARAMETER_BLOCK2_SUPERCLASS_ID:
-    {
-        for (auto const& chunk : paramBlock)
-        {
+    case PARAMETER_BLOCK2_SUPERCLASS_ID: {
+        for (auto const& chunk : paramBlock) {
             if (chunk.property.size() < 19)
                 continue;
-            if (chunk.type == 0x000E || chunk.type == 0x100E)
-            {
+            if (chunk.type == 0x000E || chunk.type == 0x100E) {
                 uint16_t index = 0;
                 uint32_t type = 0;
                 memcpy(&index, chunk.property.data() + 0, sizeof(uint16_t));
@@ -342,8 +322,7 @@ static std::vector<std::tuple<float, int, Point3>> getParamBlock(xxMaxNode::Chun
                 if (output.size() <= index)
                     output.resize(index + 1);
                 auto& [f, i, p] = output[index];
-                switch (type)
-                {
+                switch (type) {
                 case 0: // TYPE_FLOAT
                 case 5: // TYPE_ANGLE
                 case 6: // TYPE_PCNT_FRAC
@@ -381,18 +360,14 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
     // ????????-00002008-00000000-0000900B Bezier Position  HYBRIDINTERP_POSITION_CLASS_ID + POSITION_SUPERCLASS_ID
     // ????????-118F7E02-FFEE238A-0000900B Position XYZ     IPOS_CONTROL_CLASS_ID + POSITION_SUPERCLASS_ID
     // FFFFFFFF-00442312-00000000-0000900B TCB Position     TCBINTERP_POSITION_CLASS_ID + POSITION_SUPERCLASS_ID
-    for (uint32_t i = 0; i < 1; ++i)
-    {
+    for (uint32_t i = 0; i < 1; ++i) {
         auto* positionXYZ = getLinkChunk(scene, chunk, 0);
         if (positionXYZ == nullptr)
             continue;
         auto& classData = positionXYZ->classData;
-        if (classData.superClassID == POSITION_SUPERCLASS_ID)
-        {
-            if (classData.classID == IPOS_CONTROL_CLASS_ID)
-            {
-                for (uint32_t i = 0; i < 3; ++i)
-                {
+        if (classData.superClassID == POSITION_SUPERCLASS_ID) {
+            if (classData.classID == IPOS_CONTROL_CLASS_ID) {
+                for (uint32_t i = 0; i < 3; ++i) {
                     auto* position = getLinkChunk(scene, *positionXYZ, i);
                     if (position == nullptr)
                         continue;
@@ -402,8 +377,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                     if (chunk7127)
                         position = chunk7127;
                     auto propertyFloat = getProperty<float>(*position, FLOAT_TYPE);
-                    if (propertyFloat.size() >= 1)
-                    {
+                    if (propertyFloat.size() >= 1) {
                         node.position[i] = propertyFloat[0];
                         continue;
                     }
@@ -414,14 +388,12 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
             }
             if (classData.classID == LININTERP_POSITION_CLASS_ID ||
                 classData.classID == HYBRIDINTERP_POSITION_CLASS_ID ||
-                classData.classID == TCBINTERP_POSITION_CLASS_ID)
-            {
+                classData.classID == TCBINTERP_POSITION_CLASS_ID) {
                 auto* chunk7127 = getChunk(*positionXYZ, 0x7127);
                 if (chunk7127)
                     positionXYZ = chunk7127;
                 auto propertyFloat = getProperty<float>(*positionXYZ, FLOAT_TYPE);
-                if (propertyFloat.size() >= 3)
-                {
+                if (propertyFloat.size() >= 3) {
                     node.position[0] = propertyFloat[0];
                     node.position[1] = propertyFloat[1];
                     node.position[2] = propertyFloat[2];
@@ -438,18 +410,14 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
     // FFFFFFFF-00002003-00000000-0000900C Linear Rotation  LININTERP_ROTATION_CLASS_ID + ROTATION_SUPERCLASS_ID
     // ????????-00002012-00000000-0000900C Euler XYZ        HYBRIDINTERP_POINT4_CLASS_ID + ROTATION_SUPERCLASS_ID
     // FFFFFFFF-00442313-00000000-0000900C TCB Rotation     TCBINTERP_ROTATION_CLASS_ID + ROTATION_SUPERCLASS_ID
-    for (uint32_t i = 0; i < 1; ++i)
-    {
+    for (uint32_t i = 0; i < 1; ++i) {
         auto* rotationXYZ = getLinkChunk(scene, chunk, 1);
         if (rotationXYZ == nullptr)
             continue;
         auto& classData = rotationXYZ->classData;
-        if (classData.superClassID == ROTATION_SUPERCLASS_ID)
-        {
-            if (classData.classID == HYBRIDINTERP_POINT4_CLASS_ID)
-            {
-                for (uint32_t i = 0; i < 3; ++i)
-                {
+        if (classData.superClassID == ROTATION_SUPERCLASS_ID) {
+            if (classData.classID == HYBRIDINTERP_POINT4_CLASS_ID) {
+                for (uint32_t i = 0; i < 3; ++i) {
                     auto* rotation = getLinkChunk(scene, *rotationXYZ, i);
                     if (rotation == nullptr)
                         continue;
@@ -459,8 +427,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                     if (chunk7127)
                         rotation = chunk7127;
                     auto propertyFloat = getProperty<float>(*rotation, FLOAT_TYPE);
-                    if (propertyFloat.size() >= 1)
-                    {
+                    if (propertyFloat.size() >= 1) {
                         node.rotation[i] = propertyFloat[0];
                         continue;
                     }
@@ -471,22 +438,19 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                 continue;
             }
             if (classData.classID == LININTERP_ROTATION_CLASS_ID ||
-                classData.classID == TCBINTERP_ROTATION_CLASS_ID)
-            {
+                classData.classID == TCBINTERP_ROTATION_CLASS_ID) {
                 auto* chunk7127 = getChunk(*rotationXYZ, 0x7127);
                 if (chunk7127)
                     rotationXYZ = chunk7127;
                 auto propertyFloat = getProperty<float>(*rotationXYZ, FLOAT_TYPE);
-                if (propertyFloat.size() >= 4)
-                {
+                if (propertyFloat.size() >= 4) {
                     node.rotation[0] = propertyFloat[0];
                     node.rotation[1] = propertyFloat[1];
                     node.rotation[2] = propertyFloat[2];
                     node.rotation[3] = propertyFloat[3];
                     continue;
                 }
-                if (propertyFloat.size() >= 3)
-                {
+                if (propertyFloat.size() >= 3) {
                     eulerToQuaternion(node.rotation.data(), propertyFloat.data());
                     continue;
                 }
@@ -501,31 +465,26 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
     // FFFFFFFF-00002004-00000000-0000900D Linear Scale LININTERP_SCALE_CLASS_ID + SCALE_SUPERCLASS_ID
     // FFFFFFFF-00002010-00000000-0000900D Bezier Scale HYBRIDINTERP_SCALE_CLASS_ID + SCALE_SUPERCLASS_ID
     // FFFFFFFF-00442315-00000000-0000900D TCB Scale    TCBINTERP_SCALE_CLASS_ID + SCALE_SUPERCLASS_ID
-    for (uint32_t i = 0; i < 1; ++i)
-    {
+    for (uint32_t i = 0; i < 1; ++i) {
         auto* scale = getLinkChunk(scene, chunk, 2);
         if (scale == nullptr)
             continue;
         auto& classData = scale->classData;
-        if (classData.superClassID == SCALE_SUPERCLASS_ID)
-        {
+        if (classData.superClassID == SCALE_SUPERCLASS_ID) {
             if (classData.classID == LININTERP_SCALE_CLASS_ID ||
                 classData.classID == HYBRIDINTERP_SCALE_CLASS_ID ||
-                classData.classID == TCBINTERP_SCALE_CLASS_ID)
-            {
+                classData.classID == TCBINTERP_SCALE_CLASS_ID) {
                 auto* chunk7127 = getChunk(*scale, 0x7127);
                 if (chunk7127)
                     scale = chunk7127;
                 auto propertyFloat = getProperty<float>(*scale, FLOAT_TYPE);
-                if (propertyFloat.size() >= 3)
-                {
+                if (propertyFloat.size() >= 3) {
                     node.scale[0] = propertyFloat[0];
                     node.scale[1] = propertyFloat[1];
                     node.scale[2] = propertyFloat[2];
                     continue;
                 }
-                if (propertyFloat.size() >= 1)
-                {
+                if (propertyFloat.size() >= 1) {
                     node.scale[0] = node.scale[1] = node.scale[2] = propertyFloat[0];
                     continue;
                 }
@@ -541,28 +500,22 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
 static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, xxMaxNode& node)
 {
     auto* pChunk = &chunk;
-    if ((*pChunk).classData.superClassID != GEOMOBJECT_SUPERCLASS_ID)
-    {
+    if ((*pChunk).classData.superClassID != GEOMOBJECT_SUPERCLASS_ID) {
         if ((*pChunk).type != 0x2032)
             return;
         auto link = getLink(*pChunk);
-        for (auto [linkIndex, chunkIndex] : link)
-        {
+        for (auto [linkIndex, chunkIndex] : link) {
             if (scene.size() <= chunkIndex)
                 continue;
             auto const& chunk = scene[chunkIndex];
             if (pChunk == &chunk)
                 continue;
-            if (chunk.classData.superClassID == OSM_SUPERCLASS_ID)
-            {
+            if (chunk.classData.superClassID == OSM_SUPERCLASS_ID) {
                 size_t index = 0;
                 xxMaxNode::Chunk const* pObjectChunk = nullptr;
-                for (auto& child : (*pChunk))
-                {
-                    if (child.type == 0x2500)
-                    {
-                        if (index == linkIndex)
-                        {
+                for (auto& child : (*pChunk)) {
+                    if (child.type == 0x2500) {
+                        if (index == linkIndex) {
                             pObjectChunk = &child;
                             break;
                         }
@@ -576,16 +529,13 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
                     continue;
                 auto paramBlock = getParamBlock(*pParamBlock);
 
-                switch (class64(chunk.classData.classID))
-                {
+                switch (class64(chunk.classData.classID)) {
                 case class64(PAINTLAYERMOD_CLASS_ID):
-                    if (paramBlock.size() > 1)
-                    {
+                    if (paramBlock.size() > 1) {
                         auto* pColorChunk = getChunk(*pObjectChunk, 0x2512);
                         if (pColorChunk == nullptr)
                             break;
-                        switch (std::get<int>(paramBlock[1]))
-                        {
+                        switch (std::get<int>(paramBlock[1])) {
                         default:
                             node.vertexColors = getProperty<Point3>(*pColorChunk, 0x0110);
                             break;
@@ -598,8 +548,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
                         }
                     }
                     break;
-                case class64(EDIT_NORMALS_CLASS_ID):
-                {
+                case class64(EDIT_NORMALS_CLASS_ID): {
                     auto* pNormalChunk = getChunk(*pObjectChunk, 0x2512, 0x0240);
                     if (pNormalChunk == nullptr)
                         pNormalChunk = getChunk(*pObjectChunk, 0x2512, 0x0250);
@@ -608,8 +557,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
                     auto normals = getProperty<float>(*pNormalChunk, 0x0110);
                     if (normals.empty())
                         break;
-                    for (size_t i = 1; i + 2 < normals.size(); i += 3)
-                    {
+                    for (size_t i = 1; i + 2 < normals.size(); i += 3) {
                         node.normals.push_back({normals[i], normals[i + 1], normals[1 + 2]});
                     }
                     break;
@@ -639,11 +587,9 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
     // ????????-081f1dfc-77566f65-00000010 Plane            PLANE_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
     // ????????-e44f10b3-00000000-00000010 Editable Mesh    EDITTRIOBJ_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
     // ????????-1bf8338d-192f6098-00000010 Editable Poly    EPOLYOBJ_CLASS_ID + GEOMOBJECT_SUPERCLASS_ID
-    switch (class64((*pChunk).classData.classID))
-    {
+    switch (class64((*pChunk).classData.classID)) {
     case class64(BOXOBJ_CLASS_ID):
-        if (paramBlock.size() > 5)
-        {
+        if (paramBlock.size() > 5) {
             float length = std::get<float>(paramBlock[0]);
             float width = std::get<float>(paramBlock[1]);
             float height = std::get<float>(paramBlock[2]);
@@ -651,8 +597,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
             int widthSegments = std::get<int>(paramBlock[4]);
             int heightSegments = std::get<int>(paramBlock[5]);
 
-            node.vertices =
-            {
+            node.vertices = {
                 { -length, -width, -height },
                 {  length, -width, -height },
                 { -length,  width, -height },
@@ -675,8 +620,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(SPHERE_CLASS_ID):
-        if (paramBlock.size() > 4)
-        {
+        if (paramBlock.size() > 4) {
             float radius = std::get<float>(paramBlock[0]);
             int segments = std::get<int>(paramBlock[1]);
             bool smooth = std::get<int>(paramBlock[2]);
@@ -694,8 +638,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(CYLINDER_CLASS_ID):
-        if (paramBlock.size() > 5)
-        {
+        if (paramBlock.size() > 5) {
             float radius = std::get<float>(paramBlock[0]);
             float height = std::get<float>(paramBlock[1]);
             int heightSegments = std::get<int>(paramBlock[2]);
@@ -715,8 +658,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(TORUS_CLASS_ID):
-        if (paramBlock.size() > 6)
-        {
+        if (paramBlock.size() > 6) {
             float radius1 = std::get<float>(paramBlock[0]);
             float radius2 = std::get<float>(paramBlock[1]);
             float rotation = std::get<float>(paramBlock[2]);
@@ -738,8 +680,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(CONE_CLASS_ID):
-        if (paramBlock.size() > 6)
-        {
+        if (paramBlock.size() > 6) {
             float radius1 = std::get<float>(paramBlock[0]);
             float radius2 = std::get<float>(paramBlock[1]);
             float height = std::get<float>(paramBlock[2]);
@@ -761,8 +702,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(GSPHERE_CLASS_ID):
-        if (paramBlock.size() > 4)
-        {
+        if (paramBlock.size() > 4) {
             float radius = std::get<float>(paramBlock[0]);
             int segments = std::get<int>(paramBlock[1]);
             int geodesicBaseType = std::get<int>(paramBlock[2]);
@@ -780,8 +720,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(TUBE_CLASS_ID):
-        if (paramBlock.size() > 6)
-        {
+        if (paramBlock.size() > 6) {
             float radius1 = std::get<float>(paramBlock[0]);
             float radius2 = std::get<float>(paramBlock[1]);
             float height = std::get<float>(paramBlock[2]);
@@ -803,8 +742,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(PYRAMID_CLASS_ID):
-        if (paramBlock.size() > 5)
-        {
+        if (paramBlock.size() > 5) {
             float width = std::get<float>(paramBlock[0]);
             float depth = std::get<float>(paramBlock[1]);
             float height = std::get<float>(paramBlock[2]);
@@ -824,15 +762,13 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         checkClass(log, *pParamBlock, {}, 0);
         break;
     case class64(PLANE_CLASS_ID):
-        if (paramBlock.size() > 3)
-        {
+        if (paramBlock.size() > 3) {
             float length = std::get<float>(paramBlock[0]);
             float width = std::get<float>(paramBlock[1]);
             int lengthSegments = std::get<int>(paramBlock[2]);
             int widthSegments = std::get<int>(paramBlock[3]);
 
-            node.vertices =
-            {
+            node.vertices = {
                 { -length, -width, 0 },
                 {  length, -width, 0 },
                 { -length,  width, 0 },
@@ -850,33 +786,30 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         break;
     case class64(EDITTRIOBJ_CLASS_ID):
         break;
-    case class64(EPOLYOBJ_CLASS_ID):
-    {
+    case class64(EPOLYOBJ_CLASS_ID): {
         auto* pPolyChunk = getChunk(*pChunk, 0x08FE);
         if (pPolyChunk == nullptr)
             break;
         auto& polyChunk = (*pPolyChunk);
 
         auto vertices = getProperty<float>(polyChunk, 0x0100);
-        for (size_t i = 1; i + 3 < vertices.size(); i += 4)
-        {
+        for (size_t i = 1; i + 3 < vertices.size(); i += 4) {
             node.vertices.push_back({vertices[i + 1], vertices[i + 2], vertices[1 + 3]});
         }
 
         auto vertexIndices = getProperty<uint16_t>(polyChunk, 0x011A);
-        for (size_t i = 2; i + 1 < vertexIndices.size(); i += 2)
-        {
+        for (size_t i = 2; i + 1 < vertexIndices.size(); i += 2) {
             uint32_t count = (vertexIndices[i] | vertexIndices[i + 1] << 16) * 2;
-            if (i + 2 + count + 1 > vertexIndices.size())
-            {
+            if (i + 2 + count + 1 > vertexIndices.size()) {
                 log("%s is corrupted", "Editable Poly");
                 log("\n");
                 break;
             }
             i += 2;
             node.vertexIndices.push_back({});
-            for (size_t j = i, list = i + count; j < list; j += 2)
+            for (size_t j = i, list = i + count; j < list; j += 2) {
                 node.vertexIndices.back().push_back(vertexIndices[j] | vertexIndices[j + 1] << 16);
+            }
             i += count;
             uint16_t flags = vertexIndices[i];
             i += 1;
@@ -888,63 +821,55 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         }
 
         auto coordinates = getProperty<float>(polyChunk, 0x0128);
-        for (size_t i = 1; i + 2 < coordinates.size(); i += 3)
-        {
+        for (size_t i = 1; i + 2 < coordinates.size(); i += 3) {
             node.coordinates.push_back({coordinates[i], coordinates[i + 1], coordinates[1 + 2]});
         }
 
         auto coordinateIndices = getProperty<uint32_t>(polyChunk, 0x012B);
-        for (size_t i = 0; i < coordinateIndices.size(); ++i)
-        {
+        for (size_t i = 0; i < coordinateIndices.size(); ++i) {
             uint32_t count = coordinateIndices[i];
-            if (i + 1 + count > coordinateIndices.size())
-            {
+            if (i + 1 + count > coordinateIndices.size()) {
                 log("%s is corrupted", "Editable Poly");
                 log("\n");
                 break;
             }
             i += 1;
             node.coordinateIndices.push_back({});
-            for (size_t j = i, list = i + count; j < list; ++j)
+            for (size_t j = i, list = i + count; j < list; ++j) {
                 node.coordinateIndices.back().push_back(coordinateIndices[j]);
+            }
             i += count;
             i -= 1;
         }
 
 //      auto polygonsIndices = getProperty<uint32_t>(polyChunk, 0x0310);
-//      for (size_t i = 0; i < polygonsIndices.size(); ++i)
-//      {
+//      for (size_t i = 0; i < polygonsIndices.size(); ++i) {
 //          uint32_t count = polygonsIndices[i];
-//          if (i + 1 + count > polygonsIndices.size())
-//          {
+//          if (i + 1 + count > polygonsIndices.size()) {
 //              log("%s is corrupted", "Editable Poly");
 //              log("\n");
 //              break;
 //          }
 //          i += 1;
 //          node.polygonIndices.push_back({});
-//          for (size_t j = i, list = i + count; j < list; ++j)
+//          for (size_t j = i, list = i + count; j < list; ++j) {
 //              node.polygonIndices.back().push_back(polygonsIndices[j]);
+//          }
 //          i += count;
 //          i -= 1;
 //      }
 
-        if (node.vertexIndices.size() && node.coordinateIndices.size())
-        {
+        if (node.vertexIndices.size() && node.coordinateIndices.size()) {
             bool corrupted = (node.vertexIndices.size() != node.coordinateIndices.size());
-            if (corrupted == false)
-            {
-                for (size_t i = 0; i < node.vertexIndices.size() && i < node.coordinateIndices.size(); ++i)
-                {
-                    if (node.vertexIndices[i].size() != node.coordinateIndices[i].size())
-                    {
+            if (corrupted == false) {
+                for (size_t i = 0; i < node.vertexIndices.size() && i < node.coordinateIndices.size(); ++i) {
+                    if (node.vertexIndices[i].size() != node.coordinateIndices[i].size()) {
                         corrupted = true;
                         break;
                     }
                 }
             }
-            if (corrupted)
-            {
+            if (corrupted) {
                 log("%s is corrupted (%zd:%zd)", "Editable Poly", node.vertexIndices.size(), node.coordinateIndices.size());
                 log("\n");
             }
@@ -971,8 +896,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
 xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
 {
     FILE* file = fopen(name, "rb");
-    if (file == nullptr)
-    {
+    if (file == nullptr) {
         log("File is not found", name);
         log("\n");
         return nullptr;
@@ -983,8 +907,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
     TRY
 
     root = new xxMaxNode;
-    if (root == nullptr)
-    {
+    if (root == nullptr) {
         log("Out of memory");
         log("\n");
         THROW;
@@ -1005,11 +928,9 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
     fclose(file);
     file = nullptr;
 
-    if (buffer.empty() == false)
-    {
+    if (buffer.empty() == false) {
         CFB::CompoundFileReader cfbReader(buffer.data(), buffer.size());
-        cfbReader.EnumFiles(cfbReader.GetRootEntry(), -1, [&](CFB::COMPOUND_FILE_ENTRY const* entry, CFB::utf16string const& dir, int level)
-        {
+        cfbReader.EnumFiles(cfbReader.GetRootEntry(), -1, [&](CFB::COMPOUND_FILE_ENTRY const* entry, CFB::utf16string const& dir, int level) {
             std::string name = UTF16ToUTF8(entry->name);
             std::vector<char>* data = nullptr;
             if (name == "ClassData")            data = &dataClassData;
@@ -1019,8 +940,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
             else if (name == "DllDirectory")    data = &dataDllDirectory;
             else if (name == "Scene")           data = &dataScene;
             else if (name == "VideoPostQueue")  data = &dataVideoPostQueue;
-            if (data)
-            {
+            if (data) {
                 data->resize(entry->size);
                 cfbReader.ReadFile(entry, 0, data->data(), data->size());
                 (*data) = uncompress(*data);
@@ -1043,15 +963,13 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
     parseChunk(*root->videoPostQueue, dataVideoPostQueue.data(), dataVideoPostQueue.data() + dataVideoPostQueue.size());
 
     // Root
-    if (root->scene->empty())
-    {
+    if (root->scene->empty()) {
         log("Scene is empty");
         log("\n");
         THROW;
     }
     auto& scene = root->scene->front();
-    switch (scene.type)
-    {
+    switch (scene.type) {
                     // [ ] 3ds Max 8
     case 0x200E:    // [x] 3ds Max 9
     case 0x200F:    // [x] 3ds Max 2008
@@ -1075,14 +993,11 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
     }
 
     // First Pass
-    for (uint32_t i = 0; i < scene.size(); ++i)
-    {
+    for (uint32_t i = 0; i < scene.size(); ++i) {
         auto& chunk = scene[i];
         auto [className, classData] = getClass(*root->classDirectory, chunk.type);
-        if (className.empty())
-        {
-            if (chunk.type != 0x2032)
-            {
+        if (className.empty()) {
+            if (chunk.type != 0x2032) {
                 log("Class %04X is not found! (Chunk:%X)", chunk.type, i);
                 log("\n");
             }
@@ -1097,8 +1012,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
 
     // Second Pass
     std::map<uint32_t, xxMaxNode*> nodes;
-    for (uint32_t i = 0; i < scene.size(); ++i)
-    {
+    for (uint32_t i = 0; i < scene.size(); ++i) {
         auto& chunk = scene[i];
         auto& className = chunk.name;
         auto& classData = chunk.classData;
@@ -1114,16 +1028,13 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
         // Parent
         std::vector<uint32_t> propertyParent = getProperty<uint32_t>(chunk, 0x0960);
         xxMaxNode* parent = root;
-        if (propertyParent.empty() == false)
-        {
+        if (propertyParent.empty() == false) {
             uint32_t index = *propertyParent.data();
             xxMaxNode* found = nodes[index];
-            if (found)
-            {
+            if (found) {
                 parent = found;
             }
-            else
-            {
+            else {
                 log("Parent %d is not found! (Chunk:%d)", index, i);
                 log("\n");
             }
@@ -1131,23 +1042,19 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
 
         // Name
         std::vector<uint16_t> propertyName = getProperty<uint16_t>(chunk, 0x0962);
-        if (propertyName.empty() == false)
-        {
+        if (propertyName.empty() == false) {
             node.name = UTF16ToUTF8(propertyName.data(), propertyName.size());
         }
-        else
-        {
+        else {
             node.name = className;
         }
 
         // Link
-        for (uint32_t i = 0; i < 4; ++i)
-        {
+        for (uint32_t i = 0; i < 4; ++i) {
             xxMaxNode::Chunk const* linkChunk = getLinkChunk(scene, chunk, i);
             if (linkChunk == nullptr)
                 continue;
-            switch (i)
-            {
+            switch (i) {
             case 0: getPositionRotationScale(log, scene, *linkChunk, node); break;
             case 1: getPrimitive(log, scene, *linkChunk, node);             break;
             }
@@ -1155,8 +1062,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
 
         // Text
         std::vector<uint16_t> propertyText = getProperty<uint16_t>(chunk, 0x0120);
-        if (propertyText.empty() == false)
-        {
+        if (propertyText.empty() == false) {
             node.text = UTF16ToUTF8(propertyText.data(), propertyText.size());
         }
 
@@ -1165,14 +1071,12 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
         nodes[i] = &parent->back();
     }
 
-    CATCH (std::exception const& e)
-    {
+    CATCH (std::exception const& e) {
 #if _CPPUNWIND || __cpp_exceptions
         log("Exception : %s", e.what());
         log("\n");
 #endif
-        if (file)
-        {
+        if (file) {
             fclose(file);
         }
         delete root;
