@@ -32,6 +32,7 @@ thread_local jmp_buf compoundfilereader_jmp_buf = {};
 #define PARAMETER_BLOCK_SUPERCLASS_ID   0x00000008
 #define PARAMETER_BLOCK2_SUPERCLASS_ID  0x00000082
 #define GEOMOBJECT_SUPERCLASS_ID        0x00000010
+#define OSM_SUPERCLASS_ID               0x00000810
 #define FLOAT_SUPERCLASS_ID             0x00009003
 #define MATRIX3_SUPERCLASS_ID           0x00009008
 #define POSITION_SUPERCLASS_ID          0x0000900b
@@ -63,9 +64,13 @@ thread_local jmp_buf compoundfilereader_jmp_buf = {};
 #define EDITTRIOBJ_CLASS_ID             xxMaxNode::ClassID{0xe44f10b3, 0x00000000}
 #define EPOLYOBJ_CLASS_ID               xxMaxNode::ClassID{0x1bf8338d, 0x192f6098}
 
+#define EDIT_NORMALS_CLASS_ID           xxMaxNode::ClassID{0x4aa52ae3, 0x35ca1cde}
+#define PAINTLAYERMOD_CLASS_ID          xxMaxNode::ClassID{0x7ebb4645, 0x7be2044b}
+
 #define FLOAT_TYPE                      0x2501, 0x2503, 0x2504, 0x2505
 
 typedef std::array<float, 3> Point3;
+typedef std::array<float, 4> Point4;
 
 template <typename... Args>
 static std::string format(char const* format, Args&&... args)
@@ -541,13 +546,79 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         if ((*pChunk).type != 0x2032)
             return;
         auto link = getLink(*pChunk);
-        for (auto [_, index] : link)
+        for (auto [linkIndex, chunkIndex] : link)
         {
-            if (scene.size() <= index)
+            if (scene.size() <= chunkIndex)
                 continue;
-            auto const& chunk = scene[index];
+            auto const& chunk = scene[chunkIndex];
             if (pChunk == &chunk)
                 continue;
+            if (chunk.classData.superClassID == OSM_SUPERCLASS_ID)
+            {
+                size_t index = 0;
+                xxMaxNode::Chunk const* pObjectChunk = nullptr;
+                for (auto& child : (*pChunk))
+                {
+                    if (child.type == 0x2500)
+                    {
+                        if (index == linkIndex)
+                        {
+                            pObjectChunk = &child;
+                            break;
+                        }
+                        index++;
+                    }
+                }
+                if (pObjectChunk == nullptr)
+                    continue;
+                auto* pParamBlock = getLinkChunk(scene, chunk, 0);
+                if (pParamBlock == nullptr)
+                    continue;
+                auto paramBlock = getParamBlock(*pParamBlock);
+
+                switch (class64(chunk.classData.classID))
+                {
+                case class64(PAINTLAYERMOD_CLASS_ID):
+                    if (paramBlock.size() > 1)
+                    {
+                        auto* pColorChunk = getChunk(*pObjectChunk, 0x2512);
+                        if (pColorChunk == nullptr)
+                            break;
+                        switch (std::get<int>(paramBlock[1]))
+                        {
+                        default:
+                            node.vertexColors = getProperty<Point3>(*pColorChunk, 0x0110);
+                            break;
+                        case -1:
+//                          node.vertexIllums = getProperty<Point3>(*pColorChunk, 0x0110);
+                            break;
+                        case -2:
+                            node.vertexAlphas = getProperty<Point3>(*pColorChunk, 0x0110);
+                            break;
+                        }
+                    }
+                    break;
+                case class64(EDIT_NORMALS_CLASS_ID):
+                {
+                    auto* pNormalChunk = getChunk(*pObjectChunk, 0x2512, 0x0240);
+                    if (pNormalChunk == nullptr)
+                        pNormalChunk = getChunk(*pObjectChunk, 0x2512, 0x0250);
+                    if (pNormalChunk == nullptr)
+                        break;
+                    auto normals = getProperty<float>(*pNormalChunk, 0x0110);
+                    if (normals.empty())
+                        break;
+                    for (size_t i = 1; i + 2 < normals.size(); i += 3)
+                    {
+                        node.normals.push_back({normals[i], normals[i + 1], normals[1 + 2]});
+                    }
+                    break;
+                }
+                default:
+                    break;
+                }
+                continue;
+            }
             getPrimitive(log, scene, chunk, node);
         }
         return;
@@ -885,6 +956,10 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         node.text += format("Vertex Indices : %zd", node.vertexIndices.size()) + '\n';
         node.text += format("Coordinate Indices : %zd", node.coordinateIndices.size()) + '\n';
 //      node.text += format("Polygon Indices : %zd", node.polygonIndices.size()) + '\n';
+        node.text += format("Vertex Colors : %zd", node.vertexColors.size()) + '\n';
+//      node.text += format("Vertex Illums : %zd", node.vertexIllums.size()) + '\n';
+        node.text += format("Vertex Alphas : %zd", node.vertexAlphas.size()) + '\n';
+        node.text += format("Normals : %zd", node.normals.size()) + '\n';
         return;
     }
     default:

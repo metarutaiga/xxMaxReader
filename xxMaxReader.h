@@ -28,6 +28,11 @@ public:
     std::vector<std::vector<uint32_t>> coordinateIndices;
 //  std::vector<std::vector<uint32_t>> polygonIndices;
 
+    std::vector<Point3> vertexColors;
+//  std::vector<Point3> vertexIllums;
+    std::vector<Point3> vertexAlphas;
+    std::vector<Point3> normals;
+
     std::string text;
 
     uint16_t padding = 0;

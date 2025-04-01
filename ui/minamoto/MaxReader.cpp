@@ -92,6 +92,39 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
                 {
                     ImGui::Text("Size:%zd", child.property.size());
                 }
+                else
+                {
+                    size_t size = 0;
+                    std::function<void(xxMaxNode::Chunk const&)> traversal = [&](xxMaxNode::Chunk const& chunk)
+                    {
+                        size += chunk.property.size();
+                        for (auto const& child : chunk)
+                            traversal(child);
+                    };
+                    traversal(child);
+                    ImGui::Text("Size:%zd", size);
+                }
+                ImGui::EndTooltip();
+            }
+            else
+            {
+                ImGui::BeginTooltip();
+                if (child.empty())
+                {
+                    ImGui::Text("Size:%zd", child.property.size());
+                }
+                else
+                {
+                    size_t size = 0;
+                    std::function<void(xxMaxNode::Chunk const&)> traversal = [&](xxMaxNode::Chunk const& chunk)
+                    {
+                        size += chunk.property.size();
+                        for (auto const& child : chunk)
+                            traversal(child);
+                    };
+                    traversal(child);
+                    ImGui::Text("Size:%zd", size);
+                }
                 ImGui::EndTooltip();
             }
             if (ImGui::IsItemClicked() && selected != &child)
@@ -172,6 +205,19 @@ static bool NodeFinder(xxMaxNode& node, std::function<void(std::string& text)> s
             ImGui::Text("Position:%g, %g, %g", child.position[0], child.position[1], child.position[2]);
             ImGui::Text("Rotation:%g, %g, %g, %g", child.rotation[0], child.rotation[1], child.rotation[2], child.rotation[3]);
             ImGui::Text("Scale:%g, %g, %g", child.scale[0], child.scale[1], child.scale[2]);
+            if (child.vertices.empty() == false)
+            {
+                ImGui::Separator();
+                ImGui::Text("Vertices : %zd", child.vertices.size());
+                ImGui::Text("Coordinates : %zd", child.coordinates.size());
+                ImGui::Text("Vertex Indices : %zd", child.vertexIndices.size());
+                ImGui::Text("Coordinate Indices : %zd", child.coordinateIndices.size());
+//              ImGui::Text("Polygon Indices : %zd", child.polygonIndices.size());
+                ImGui::Text("Vertex Colors : %zd", child.vertexColors.size());
+//              ImGui::Text("Vertex Illums : %zd", child.vertexIllums.size());
+                ImGui::Text("Vertex Alphas : %zd", child.vertexAlphas.size());
+                ImGui::Text("Normals : %zd", child.normals.size());
+            }
             ImGui::EndTooltip();
 
             if (ImGui::IsItemClicked() && selected != &child)
