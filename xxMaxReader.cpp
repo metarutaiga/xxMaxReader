@@ -1,9 +1,7 @@
-//==============================================================================
-// xxMaxReader : xxMaxReader Source
-//
-// Copyright (c) 2025 TAiGA
-// https://github.com/metarutaiga/xxmaxreader
-//==============================================================================
+/*
+    2012 Kaetemi https://blog.kaetemi.be
+    2025 TAiGA   https://github.com/metarutaiga/xxmaxreader
+*/
 #include <stdio.h>
 #include <functional>
 #include <map>
@@ -45,6 +43,7 @@ thread_local jmp_buf compoundfilereader_jmp_buf = {};
 #define LININTERP_SCALE_CLASS_ID        xxMaxNode::ClassID{0x00002004, 0x00000000}
 #define PRS_CONTROL_CLASS_ID            xxMaxNode::ClassID{0x00002005, 0x00000000}
 #define HYBRIDINTERP_FLOAT_CLASS_ID     xxMaxNode::ClassID{0x00002007, 0x00000000}
+#define HYBRIDINTERP_POSITION_CLASS_ID  xxMaxNode::ClassID{0x00002008, 0x00000000}
 #define HYBRIDINTERP_SCALE_CLASS_ID     xxMaxNode::ClassID{0x00002010, 0x00000000}
 #define HYBRIDINTERP_POINT4_CLASS_ID    xxMaxNode::ClassID{0x00002012, 0x00000000}
 #define TCBINTERP_POSITION_CLASS_ID     xxMaxNode::ClassID{0x00442312, 0x00000000}
@@ -374,6 +373,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
         return;
 
     // FFFFFFFF-00002002-00000000-0000900B Linear Position  LININTERP_POSITION_CLASS_ID + POSITION_SUPERCLASS_ID
+    // ????????-00002008-00000000-0000900B Bezier Position  HYBRIDINTERP_POSITION_CLASS_ID + POSITION_SUPERCLASS_ID
     // ????????-118F7E02-FFEE238A-0000900B Position XYZ     IPOS_CONTROL_CLASS_ID + POSITION_SUPERCLASS_ID
     // FFFFFFFF-00442312-00000000-0000900B TCB Position     TCBINTERP_POSITION_CLASS_ID + POSITION_SUPERCLASS_ID
     for (uint32_t i = 0; i < 1; ++i)
@@ -408,6 +408,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                 continue;
             }
             if (classData.classID == LININTERP_POSITION_CLASS_ID ||
+                classData.classID == HYBRIDINTERP_POSITION_CLASS_ID ||
                 classData.classID == TCBINTERP_POSITION_CLASS_ID)
             {
                 auto* chunk7127 = getChunk(*positionXYZ, 0x7127);
@@ -795,8 +796,12 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         for (size_t i = 2; i + 1 < vertexIndices.size(); i += 2)
         {
             uint32_t count = (vertexIndices[i] | vertexIndices[i + 1] << 16) * 2;
-            if (i + count >= vertexIndices.size())
+            if (i + 2 + count + 1 > vertexIndices.size())
+            {
+                log("%s is corrupted", "Editable Poly");
+                log("\n");
                 break;
+            }
             i += 2;
             node.vertexIndices.push_back({});
             for (size_t j = i, list = i + count; j < list; j += 2)
@@ -821,40 +826,65 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
         for (size_t i = 0; i < coordinateIndices.size(); ++i)
         {
             uint32_t count = coordinateIndices[i];
-            if (i + count >= coordinateIndices.size())
+            if (i + 1 + count > coordinateIndices.size())
+            {
+                log("%s is corrupted", "Editable Poly");
+                log("\n");
                 break;
+            }
             i += 1;
             node.coordinateIndices.push_back({});
             for (size_t j = i, list = i + count; j < list; ++j)
                 node.coordinateIndices.back().push_back(coordinateIndices[j]);
-            i += count - 1;
+            i += count;
+            i -= 1;
         }
 
-        auto polygonsIndices = getProperty<uint32_t>(polyChunk, 0x0310);
-        for (size_t i = 0; i < polygonsIndices.size(); ++i)
-        {
-            uint32_t count = polygonsIndices[i];
-            if (i + count >= polygonsIndices.size())
-                break;
-            i += 1;
-            node.polygonIndices.push_back({});
-            for (size_t j = i, list = i + count; j < list; ++j)
-                node.polygonIndices.back().push_back(polygonsIndices[j]);
-            i += count - 1;
-        }
-
-//      if (node.vertices.size() && node.coordinateIndices.size() && node.vertices.size() != node.coordinateIndices.size())
+//      auto polygonsIndices = getProperty<uint32_t>(polyChunk, 0x0310);
+//      for (size_t i = 0; i < polygonsIndices.size(); ++i)
 //      {
-//          log("%s is corrupted (%zd:%zd)", "Editable Poly", node.vertices.size(), node.coordinateIndices.size());
-//          log("\n");
+//          uint32_t count = polygonsIndices[i];
+//          if (i + 1 + count > polygonsIndices.size())
+//          {
+//              log("%s is corrupted", "Editable Poly");
+//              log("\n");
+//              break;
+//          }
+//          i += 1;
+//          node.polygonIndices.push_back({});
+//          for (size_t j = i, list = i + count; j < list; ++j)
+//              node.polygonIndices.back().push_back(polygonsIndices[j]);
+//          i += count;
+//          i -= 1;
 //      }
+
+        if (node.vertexIndices.size() && node.coordinateIndices.size())
+        {
+            bool corrupted = (node.vertexIndices.size() != node.coordinateIndices.size());
+            if (corrupted == false)
+            {
+                for (size_t i = 0; i < node.vertexIndices.size() && i < node.coordinateIndices.size(); ++i)
+                {
+                    if (node.vertexIndices[i].size() != node.coordinateIndices[i].size())
+                    {
+                        corrupted = true;
+                        break;
+                    }
+                }
+            }
+            if (corrupted)
+            {
+                log("%s is corrupted (%zd:%zd)", "Editable Poly", node.vertexIndices.size(), node.coordinateIndices.size());
+                log("\n");
+            }
+        }
 
         node.text += format("Primitive : %s", "Editable Poly") + '\n';
         node.text += format("Vertices : %zd", node.vertices.size()) + '\n';
         node.text += format("Coordinates : %zd", node.coordinates.size()) + '\n';
         node.text += format("Vertex Indices : %zd", node.vertexIndices.size()) + '\n';
         node.text += format("Coordinate Indices : %zd", node.coordinateIndices.size()) + '\n';
-        node.text += format("Polygon Indices : %zd", node.polygonIndices.size()) + '\n';
+//      node.text += format("Polygon Indices : %zd", node.polygonIndices.size()) + '\n';
         return;
     }
     default:
@@ -951,7 +981,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
     case 0x200E:    // [x] 3ds Max 9
     case 0x200F:    // [x] 3ds Max 2008
                     // [ ] 3ds Max 2009
-                    // [ ] 3ds Max 2010
+    case 0x2012:    // [x] 3ds Max 2010
                     // [ ] 3ds Max 2011
                     // [ ] 3ds Max 2012
                     // [ ] 3ds Max 2013

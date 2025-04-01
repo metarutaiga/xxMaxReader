@@ -1,9 +1,7 @@
-//==============================================================================
-// xxMaxReader : xxMaxReader Header
-//
-// Copyright (c) 2025 TAiGA
-// https://github.com/metarutaiga/xxmaxreader
-//==============================================================================
+/*
+    2012 Kaetemi https://blog.kaetemi.be
+    2025 TAiGA   https://github.com/metarutaiga/xxmaxreader
+*/
 #pragma once
 
 #include <array>
@@ -28,7 +26,7 @@ public:
     std::vector<Point3> coordinates;
     std::vector<std::vector<uint32_t>> vertexIndices;
     std::vector<std::vector<uint32_t>> coordinateIndices;
-    std::vector<std::vector<uint32_t>> polygonIndices;
+//  std::vector<std::vector<uint32_t>> polygonIndices;
 
     std::string text;
 
