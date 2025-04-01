@@ -875,11 +875,20 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
             }
         }
 
+        size_t totalVertexIndices = 0;
+        size_t totalCoordinateIndices = 0;
+        for (auto const& indices : node.vertexIndices) {
+            totalVertexIndices += indices.size();
+        }
+        for (auto const& indices : node.coordinateIndices) {
+            totalCoordinateIndices += indices.size();
+        }
+
         node.text += format("Primitive : %s", "Editable Poly") + '\n';
         node.text += format("Vertices : %zd", node.vertices.size()) + '\n';
         node.text += format("Coordinates : %zd", node.coordinates.size()) + '\n';
-        node.text += format("Vertex Indices : %zd", node.vertexIndices.size()) + '\n';
-        node.text += format("Coordinate Indices : %zd", node.coordinateIndices.size()) + '\n';
+        node.text += format("Vertex Indices : %zd (%zd)", node.vertexIndices.size(), totalVertexIndices) + '\n';
+        node.text += format("Coordinate Indices : %zd (%zd)", node.coordinateIndices.size(), totalCoordinateIndices) + '\n';
 //      node.text += format("Polygon Indices : %zd", node.polygonIndices.size()) + '\n';
         node.text += format("Vertex Colors : %zd", node.vertexColors.size()) + '\n';
 //      node.text += format("Vertex Illums : %zd", node.vertexIllums.size()) + '\n';
