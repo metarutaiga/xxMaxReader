@@ -17,10 +17,10 @@
 		F5C251D72D87CD64005D23CD /* CFBReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251D52D87CD64005D23CD /* CFBReader.cpp */; };
 		F5C251D82D87CD64005D23CD /* CFBReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251D52D87CD64005D23CD /* CFBReader.cpp */; };
 		F5C251D92D87CD64005D23CD /* CFBReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C251D52D87CD64005D23CD /* CFBReader.cpp */; };
-		F5C252022D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
-		F5C252032D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
-		F5C252042D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
-		F5C252052D882E20005D23CD /* xxMaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* xxMaxReader.cpp */; };
+		F5C252022D882E20005D23CD /* miMAX.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* miMAX.cpp */; };
+		F5C252032D882E20005D23CD /* miMAX.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* miMAX.cpp */; };
+		F5C252042D882E20005D23CD /* miMAX.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* miMAX.cpp */; };
+		F5C252052D882E20005D23CD /* miMAX.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252012D882E20005D23CD /* miMAX.cpp */; };
 		F5C252082D884B7C005D23CD /* MaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252072D884B7C005D23CD /* MaxReader.cpp */; };
 		F5C252092D884B7C005D23CD /* MaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252072D884B7C005D23CD /* MaxReader.cpp */; };
 		F5C2520A2D884B7C005D23CD /* MaxReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5C252072D884B7C005D23CD /* MaxReader.cpp */; };
@@ -81,8 +81,8 @@
 		F5C251D52D87CD64005D23CD /* CFBReader.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = CFBReader.cpp; path = ../CFBReader.cpp; sourceTree = SOURCE_ROOT; };
 		F5C251E22D882993005D23CD /* compoundfilereader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = compoundfilereader.h; sourceTree = "<group>"; };
 		F5C251E32D882993005D23CD /* utf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utf.h; sourceTree = "<group>"; };
-		F5C252002D882E20005D23CD /* xxMaxReader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = xxMaxReader.h; path = ../../../xxMaxReader.h; sourceTree = SOURCE_ROOT; };
-		F5C252012D882E20005D23CD /* xxMaxReader.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = xxMaxReader.cpp; path = ../../../xxMaxReader.cpp; sourceTree = SOURCE_ROOT; };
+		F5C252002D882E20005D23CD /* miMAX.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = miMAX.h; path = ../../../miMAX.h; sourceTree = SOURCE_ROOT; };
+		F5C252012D882E20005D23CD /* miMAX.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = miMAX.cpp; path = ../../../miMAX.cpp; sourceTree = SOURCE_ROOT; };
 		F5C252062D884B7C005D23CD /* MaxReader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MaxReader.h; sourceTree = "<group>"; };
 		F5C252072D884B7C005D23CD /* MaxReader.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MaxReader.cpp; sourceTree = "<group>"; };
 		F5C2520C2D8D179C005D23CD /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
@@ -176,8 +176,8 @@
 				F5C251FF2D882993005D23CD /* compoundfilereader */,
 				F5C251CC2D87366B005D23CD /* ImGuiFileDialog */,
 				F5E5B0C62D6C5669008E0D21 /* ui */,
-				F5C252012D882E20005D23CD /* xxMaxReader.cpp */,
-				F5C252002D882E20005D23CD /* xxMaxReader.h */,
+				F5C252012D882E20005D23CD /* miMAX.cpp */,
+				F5C252002D882E20005D23CD /* miMAX.h */,
 				D644A042231ED82900B75B77 /* Products */,
 				300264BD24266097004559E0 /* Frameworks */,
 			);
@@ -366,7 +366,7 @@
 				F5E5B0E72D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */,
 				F5C2520A2D884B7C005D23CD /* MaxReader.cpp in Sources */,
 				F5C251D62D87CD64005D23CD /* CFBReader.cpp in Sources */,
-				F5C252052D882E20005D23CD /* xxMaxReader.cpp in Sources */,
+				F5C252052D882E20005D23CD /* miMAX.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -377,7 +377,7 @@
 				F5E5B0DE2D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */,
 				F5C252082D884B7C005D23CD /* MaxReader.cpp in Sources */,
 				F5C251D92D87CD64005D23CD /* CFBReader.cpp in Sources */,
-				F5C252022D882E20005D23CD /* xxMaxReader.cpp in Sources */,
+				F5C252022D882E20005D23CD /* miMAX.cpp in Sources */,
 				D62FEBF12BE50FF3004E9FDF /* dllmain.cpp in Sources */,
 				F5E5B1A32D6C65EC008E0D21 /* except.cpp in Sources */,
 				D6169D0A2BB17E3100E5490C /* new.cpp in Sources */,
@@ -393,7 +393,7 @@
 				F5E5B0F92D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */,
 				F5C2520B2D884B7C005D23CD /* MaxReader.cpp in Sources */,
 				F5C251D72D87CD64005D23CD /* CFBReader.cpp in Sources */,
-				F5C252042D882E20005D23CD /* xxMaxReader.cpp in Sources */,
+				F5C252042D882E20005D23CD /* miMAX.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -404,7 +404,7 @@
 				F5E5B0F02D6C56AB008E0D21 /* MaxReaderEntry.cpp in Sources */,
 				F5C252092D884B7C005D23CD /* MaxReader.cpp in Sources */,
 				F5C251D82D87CD64005D23CD /* CFBReader.cpp in Sources */,
-				F5C252032D882E20005D23CD /* xxMaxReader.cpp in Sources */,
+				F5C252032D882E20005D23CD /* miMAX.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

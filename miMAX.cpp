@@ -6,7 +6,7 @@
 #include <functional>
 #include <map>
 #include <tuple>
-#include "xxMaxReader.h"
+#include "miMAX.h"
 
 #if _CPPUNWIND || __cpp_exceptions
 #include <exception>
@@ -28,9 +28,9 @@ thread_local jmp_buf compoundfilereader_jmp_buf = {};
 #include <zlib.h>
 #endif
 
-typedef xxMaxNode::ClassID ClassID;
-typedef xxMaxNode::Point3 Point3;
-typedef xxMaxNode::Point4 Point4;
+typedef miMaxNode::ClassID ClassID;
+typedef miMaxNode::Point3 Point3;
+typedef miMaxNode::Point4 Point4;
 
 #define BASENODE_SUPERCLASS_ID          0x00000001
 #define PARAMETER_BLOCK_SUPERCLASS_ID   0x00000008
@@ -130,7 +130,7 @@ static constexpr uint64_t class64(ClassID classID)
     return (uint64_t)classID.first | ((uint64_t)classID.second << 32);
 }
 
-static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* end)
+static void parseChunk(miMaxNode::Chunk& chunk, char const* begin, char const* end)
 {
     for (;;) {
         bool children = false;
@@ -159,7 +159,7 @@ static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* e
         char const* next = (header + length);
         if (next > end)
             break;
-        xxMaxNode::Chunk child;
+        miMaxNode::Chunk child;
         child.type = type;
         child.name = format("%04X", type);
         if (children) {
@@ -174,7 +174,7 @@ static void parseChunk(xxMaxNode::Chunk& chunk, char const* begin, char const* e
 }
 
 template <typename... Args>
-static xxMaxNode::Chunk const* getChunk(xxMaxNode::Chunk const& chunk, Args&&... args)
+static miMaxNode::Chunk const* getChunk(miMaxNode::Chunk const& chunk, Args&&... args)
 {
     auto* output = &chunk;
     for (uint16_t type : { args... }) {
@@ -187,7 +187,7 @@ static xxMaxNode::Chunk const* getChunk(xxMaxNode::Chunk const& chunk, Args&&...
 }
 
 template <typename T = char, typename... Args>
-static std::vector<T> getProperty(xxMaxNode::Chunk const& chunk, Args&&... args)
+static std::vector<T> getProperty(miMaxNode::Chunk const& chunk, Args&&... args)
 {
     for (uint16_t type : { args... }) {
         auto* found = getChunk(chunk, type);
@@ -200,13 +200,13 @@ static std::vector<T> getProperty(xxMaxNode::Chunk const& chunk, Args&&... args)
     return std::vector<T>();
 }
 
-static std::tuple<std::string, xxMaxNode::ClassData> getClass(xxMaxNode::Chunk const& classDirectory, uint16_t classIndex)
+static std::tuple<std::string, miMaxNode::ClassData> getClass(miMaxNode::Chunk const& classDirectory, uint16_t classIndex)
 {
     if (classDirectory.size() <= classIndex)
         return {};
     auto const& chunk = classDirectory[classIndex];
     auto propertyClassName = getProperty<uint16_t>(chunk, 0x2042);
-    auto propertyClassChunk = getProperty<xxMaxNode::ClassData>(chunk, 0x2060);
+    auto propertyClassChunk = getProperty<miMaxNode::ClassData>(chunk, 0x2060);
     if (propertyClassChunk.empty())
         return {};
     if (propertyClassName.empty())
@@ -214,7 +214,7 @@ static std::tuple<std::string, xxMaxNode::ClassData> getClass(xxMaxNode::Chunk c
     return { UTF16ToUTF8(propertyClassName.data(), propertyClassName.size()), *propertyClassChunk.data() };
 }
 
-static std::tuple<std::string, std::string> getDll(xxMaxNode::Chunk const& dllDirectory, uint32_t dllIndex)
+static std::tuple<std::string, std::string> getDll(miMaxNode::Chunk const& dllDirectory, uint32_t dllIndex)
 {
     if (dllIndex == UINT32_MAX)
         return { "(Internal)", "(Internal)" };
@@ -228,7 +228,7 @@ static std::tuple<std::string, std::string> getDll(xxMaxNode::Chunk const& dllDi
     return { UTF16ToUTF8(propertyDllFile.data(), propertyDllFile.size()), UTF16ToUTF8(propertyDllName.data(), propertyDllName.size()) };
 }
 
-static std::map<uint32_t, uint32_t> getLink(xxMaxNode::Chunk const& chunk)
+static std::map<uint32_t, uint32_t> getLink(miMaxNode::Chunk const& chunk)
 {
     std::map<uint32_t, uint32_t> link;
     auto propertyLink2034 = getProperty<uint32_t>(chunk, 0x2034);
@@ -241,7 +241,7 @@ static std::map<uint32_t, uint32_t> getLink(xxMaxNode::Chunk const& chunk)
 }
 
 template <typename... Args>
-static xxMaxNode::Chunk const* getLinkChunk(xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, Args&&... args)
+static miMaxNode::Chunk const* getLinkChunk(miMaxNode::Chunk const& scene, miMaxNode::Chunk const& chunk, Args&&... args)
 {
     auto* output = &chunk;
     auto link = getLink(*output);
@@ -258,7 +258,7 @@ static xxMaxNode::Chunk const* getLinkChunk(xxMaxNode::Chunk const& scene, xxMax
     return output;
 }
 
-static bool checkClass(int(*log)(bool, char const*, ...), xxMaxNode::Chunk const& chunk, ClassID classID, xxMaxNode::SuperClassID superClassID)
+static bool checkClass(int(*log)(bool, char const*, ...), miMaxNode::Chunk const& chunk, ClassID classID, miMaxNode::SuperClassID superClassID)
 {
     if (chunk.classData.classID == classID && chunk.classData.superClassID == superClassID)
         return true;
@@ -281,7 +281,7 @@ static void eulerToQuaternion(float quaternion[4], float euler[3])
     quaternion[3] = (cx * cy * cz + sx * sy * sz);
 }
 
-static std::vector<std::tuple<float, int, Point3>> getParamBlock(xxMaxNode::Chunk const& paramBlock)
+static std::vector<std::tuple<float, int, Point3>> getParamBlock(miMaxNode::Chunk const& paramBlock)
 {
     std::vector<std::tuple<float, int, Point3>> output;
     switch (paramBlock.classData.superClassID) {
@@ -348,7 +348,7 @@ static std::vector<std::tuple<float, int, Point3>> getParamBlock(xxMaxNode::Chun
     return output;
 }
 
-static void getPositionRotationScale(int(*log)(bool, char const*, ...), xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, xxMaxNode& node)
+static void getPositionRotationScale(int(*log)(bool, char const*, ...), miMaxNode::Chunk const& scene, miMaxNode::Chunk const& chunk, miMaxNode& node)
 {
     // ????????-00002007-00000000-00009003 Bezier Float             HYBRIDINTERP_FLOAT_CLASS_ID + FLOAT_SUPERCLASS_ID
 
@@ -492,7 +492,7 @@ static void getPositionRotationScale(int(*log)(bool, char const*, ...), xxMaxNod
     }
 }
 
-static void getPrimitive(int(*log)(bool, char const*, ...), xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, xxMaxNode& node)
+static void getPrimitive(int(*log)(bool, char const*, ...), miMaxNode::Chunk const& scene, miMaxNode::Chunk const& chunk, miMaxNode& node)
 {
     auto* pChunk = &chunk;
     if ((*pChunk).classData.superClassID != GEOMOBJECT_SUPERCLASS_ID) {
@@ -507,7 +507,7 @@ static void getPrimitive(int(*log)(bool, char const*, ...), xxMaxNode::Chunk con
                 continue;
             if (chunk.classData.superClassID == OSM_SUPERCLASS_ID) {
                 size_t index = 0;
-                xxMaxNode::Chunk const* pObjectChunk = nullptr;
+                miMaxNode::Chunk const* pObjectChunk = nullptr;
                 for (auto& child : (*pChunk)) {
                     if (child.type == 0x2500) {
                         if (index == linkIndex) {
@@ -897,7 +897,7 @@ static void getPrimitive(int(*log)(bool, char const*, ...), xxMaxNode::Chunk con
     checkClass(log, *pChunk, {}, 0);
 }
 
-xxMaxNode* xxMaxReader(char const* name, int(*log)(bool, char const*, ...))
+miMaxNode* miMAXOpenFile(char const* name, int(*log)(bool, char const*, ...))
 {
     FILE* file = fopen(name, "rb");
     if (file == nullptr) {
@@ -905,11 +905,11 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(bool, char const*, ...))
         return nullptr;
     }
 
-    xxMaxNode* root = nullptr;
+    miMaxNode* root = nullptr;
 
     TRY
 
-    root = new xxMaxNode;
+    root = new miMaxNode;
     if (root == nullptr) {
         log(true, "Out of memory");
         THROW;
@@ -951,12 +951,12 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(bool, char const*, ...))
     }
 
     // Parse
-    root->classData = new xxMaxNode::Chunk;
-    root->classDirectory = new xxMaxNode::Chunk;
-    root->config = new xxMaxNode::Chunk;
-    root->dllDirectory = new xxMaxNode::Chunk;
-    root->scene = new xxMaxNode::Chunk;
-    root->videoPostQueue = new xxMaxNode::Chunk;
+    root->classData = new miMaxNode::Chunk;
+    root->classDirectory = new miMaxNode::Chunk;
+    root->config = new miMaxNode::Chunk;
+    root->dllDirectory = new miMaxNode::Chunk;
+    root->scene = new miMaxNode::Chunk;
+    root->videoPostQueue = new miMaxNode::Chunk;
     parseChunk(*root->classData, dataClassData.data(), dataClassData.data() + dataClassData.size());
     parseChunk(*root->classDirectory, dataClassDirectory.data(), dataClassDirectory.data() + dataClassDirectory.size());
     parseChunk(*root->config, dataConfig.data(), dataConfig.data() + dataConfig.size());
@@ -1010,7 +1010,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(bool, char const*, ...))
     }
 
     // Second Pass
-    std::map<uint32_t, xxMaxNode*> nodes;
+    std::map<uint32_t, miMaxNode*> nodes;
     for (uint32_t i = 0; i < scene.size(); ++i) {
         auto& chunk = scene[i];
         auto& className = chunk.name;
@@ -1022,14 +1022,14 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(bool, char const*, ...))
         if (classData.superClassID != BASENODE_SUPERCLASS_ID)
             continue;
 
-        xxMaxNode node;
+        miMaxNode node;
 
         // Parent
         std::vector<uint32_t> propertyParent = getProperty<uint32_t>(chunk, 0x0960);
-        xxMaxNode* parent = root;
+        miMaxNode* parent = root;
         if (propertyParent.empty() == false) {
             uint32_t index = *propertyParent.data();
-            xxMaxNode* found = nodes[index];
+            miMaxNode* found = nodes[index];
             if (found) {
                 parent = found;
             }
@@ -1049,7 +1049,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(bool, char const*, ...))
 
         // Link
         for (uint32_t i = 0; i < 4; ++i) {
-            xxMaxNode::Chunk const* linkChunk = getLinkChunk(scene, chunk, i);
+            miMaxNode::Chunk const* linkChunk = getLinkChunk(scene, chunk, i);
             if (linkChunk == nullptr)
                 continue;
             switch (i) {

@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-struct xxMaxNode : public std::list<xxMaxNode>
+struct miMaxNode : public std::list<miMaxNode>
 {
 public:
     typedef std::array<float, 3> Point3;
@@ -67,7 +67,7 @@ public:
     Chunk* scene = nullptr;
     Chunk* videoPostQueue = nullptr;
 
-    ~xxMaxNode()
+    ~miMaxNode()
     {
         delete classData;
         delete classDirectory;
@@ -78,4 +78,4 @@ public:
     }
 };
 
-xxMaxNode* xxMaxReader(char const* name, int(*log)(bool, char const*, ...));
+miMaxNode* miMAXOpenFile(char const* name, int(*log)(bool, char const*, ...));

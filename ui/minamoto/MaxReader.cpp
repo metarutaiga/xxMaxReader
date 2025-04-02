@@ -8,14 +8,14 @@
 #include <xxGraphicPlus/xxFile.h>
 #include <ImGuiFileDialog/ImGuiFileDialog.h>
 #include <IconFontCppHeaders/IconsFontAwesome4.h>
-#include "xxMaxReader.h"
+#include "miMAX.h"
 #include "MaxReader.h"
 
 static std::string path;
 static std::string info;
 static ImGuiFileDialog* fileDialog;
 //------------------------------------------------------------------------------
-static xxMaxNode* root;
+static miMaxNode* root;
 //------------------------------------------------------------------------------
 static int MaxReaderLog(bool breakline, char const* format, ...)
 {
@@ -41,7 +41,7 @@ static int MaxReaderLog(bool breakline, char const* format, ...)
     return result;
 }
 //------------------------------------------------------------------------------
-static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t type, std::vector<char> const& property)> select)
+static bool ChunkFinder(miMaxNode::Chunk& chunk, std::function<void(uint16_t type, std::vector<char> const& property)> select)
 {
     static void* selected;
     bool updated = false;
@@ -54,7 +54,7 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
         if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) delta = 1;
         if (delta != 0)
         {
-            size_t index = std::distance(chunk.data(), (xxMaxNode::Chunk::value_type*)selected) + delta;
+            size_t index = std::distance(chunk.data(), (miMaxNode::Chunk::value_type*)selected) + delta;
             if (index < chunk.size())
             {
                 auto& child = chunk[index];
@@ -100,7 +100,7 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
                 else
                 {
                     size_t size = 0;
-                    std::function<void(xxMaxNode::Chunk const&)> traversal = [&](xxMaxNode::Chunk const& chunk)
+                    std::function<void(miMaxNode::Chunk const&)> traversal = [&](miMaxNode::Chunk const& chunk)
                     {
                         size += chunk.property.size();
                         for (auto const& child : chunk)
@@ -121,7 +121,7 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
                 else
                 {
                     size_t size = 0;
-                    std::function<void(xxMaxNode::Chunk const&)> traversal = [&](xxMaxNode::Chunk const& chunk)
+                    std::function<void(miMaxNode::Chunk const&)> traversal = [&](miMaxNode::Chunk const& chunk)
                     {
                         size += chunk.property.size();
                         for (auto const& child : chunk)
@@ -154,7 +154,7 @@ static bool ChunkFinder(xxMaxNode::Chunk& chunk, std::function<void(uint16_t typ
     return updated;
 }
 //------------------------------------------------------------------------------
-static bool NodeFinder(xxMaxNode& node, std::function<void(std::string& text)> select)
+static bool NodeFinder(miMaxNode& node, std::function<void(std::string& text)> select)
 {
     static void* selected;
     bool updated = false;
@@ -305,7 +305,7 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
         {
             if (root)
             {
-                xxMaxNode::Chunk* chunk = nullptr;
+                miMaxNode::Chunk* chunk = nullptr;
                 switch (tabIndex)
                 {
                     case 0: chunk = root->classData;        break;
@@ -411,7 +411,7 @@ bool MaxReader::Update(const UpdateData& updateData, bool& show)
             info.clear();
 
             path = fileDialog->GetFilePathName();
-            root = xxMaxReader(path.c_str(), MaxReaderLog);
+            root = miMAXOpenFile(path.c_str(), MaxReaderLog);
         }
         fileDialog->Close();
     }
