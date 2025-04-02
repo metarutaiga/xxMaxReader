@@ -257,13 +257,12 @@ static xxMaxNode::Chunk const* getLinkChunk(xxMaxNode::Chunk const& scene, xxMax
     return output;
 }
 
-static bool checkClass(int(*log)(char const*, ...), xxMaxNode::Chunk const& chunk, xxMaxNode::ClassID classID, xxMaxNode::SuperClassID superClassID)
+static bool checkClass(int(*log)(bool, char const*, ...), xxMaxNode::Chunk const& chunk, xxMaxNode::ClassID classID, xxMaxNode::SuperClassID superClassID)
 {
     if (chunk.classData.classID == classID && chunk.classData.superClassID == superClassID)
         return true;
     auto& classData = chunk.classData;
-    log("Unknown (%08X-%08X-%08X-%08X) %s", classData.dllIndex, classData.classID.first, classData.classID.second, classData.superClassID, chunk.name.c_str());
-    log("\n");
+    log(true, "Unknown (%08X-%08X-%08X-%08X) %s", classData.dllIndex, classData.classID.first, classData.classID.second, classData.superClassID, chunk.name.c_str());
     return false;
 }
 
@@ -348,7 +347,7 @@ static std::vector<std::tuple<float, int, Point3>> getParamBlock(xxMaxNode::Chun
     return output;
 }
 
-static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, xxMaxNode& node)
+static void getPositionRotationScale(int(*log)(bool, char const*, ...), xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, xxMaxNode& node)
 {
     // ????????-00002007-00000000-00009003 Bezier Float             HYBRIDINTERP_FLOAT_CLASS_ID + FLOAT_SUPERCLASS_ID
 
@@ -381,8 +380,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                         node.position[i] = propertyFloat[0];
                         continue;
                     }
-                    log("Value is not found (%s)", position->name.c_str());
-                    log("\n");
+                    log(true, "Value is not found (%s)", position->name.c_str());
                 }
                 continue;
             }
@@ -399,8 +397,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                     node.position[2] = propertyFloat[2];
                     continue;
                 }
-                log("Value is not found (%s)", positionXYZ->name.c_str());
-                log("\n");
+                log(true, "Value is not found (%s)", positionXYZ->name.c_str());
                 continue;
             }
         }
@@ -431,8 +428,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                         node.rotation[i] = propertyFloat[0];
                         continue;
                     }
-                    log("Value is not found (%s)", rotation->name.c_str());
-                    log("\n");
+                    log(true, "Value is not found (%s)", rotation->name.c_str());
                 }
                 eulerToQuaternion(node.rotation.data(), node.rotation.data());
                 continue;
@@ -454,8 +450,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                     eulerToQuaternion(node.rotation.data(), propertyFloat.data());
                     continue;
                 }
-                log("Value is not found (%s)", rotationXYZ->name.c_str());
-                log("\n");
+                log(true, "Value is not found (%s)", rotationXYZ->name.c_str());
                 continue;
             }
         }
@@ -488,8 +483,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
                     node.scale[0] = node.scale[1] = node.scale[2] = propertyFloat[0];
                     continue;
                 }
-                log("Value is not found (%s)", scale->name.c_str());
-                log("\n");
+                log(true, "Value is not found (%s)", scale->name.c_str());
                 continue;
             }
         }
@@ -497,7 +491,7 @@ static void getPositionRotationScale(int(*log)(char const*, ...), xxMaxNode::Chu
     }
 }
 
-static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, xxMaxNode& node)
+static void getPrimitive(int(*log)(bool, char const*, ...), xxMaxNode::Chunk const& scene, xxMaxNode::Chunk const& chunk, xxMaxNode& node)
 {
     auto* pChunk = &chunk;
     if ((*pChunk).classData.superClassID != GEOMOBJECT_SUPERCLASS_ID) {
@@ -537,13 +531,13 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
                             break;
                         switch (std::get<int>(paramBlock[1])) {
                         default:
-                            node.vertexColors = getProperty<Point3>(*pColorChunk, 0x0110);
+                            node.vertexColor = getProperty<Point3>(*pColorChunk, 0x0110);
                             break;
                         case -1:
-//                          node.vertexIllums = getProperty<Point3>(*pColorChunk, 0x0110);
+//                          node.vertexIllum = getProperty<Point3>(*pColorChunk, 0x0110);
                             break;
                         case -2:
-                            node.vertexAlphas = getProperty<Point3>(*pColorChunk, 0x0110);
+                            node.vertexAlpha = getProperty<Point3>(*pColorChunk, 0x0110);
                             break;
                         }
                     }
@@ -558,7 +552,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
                     if (normals.empty())
                         break;
                     for (size_t i = 1; i + 2 < normals.size(); i += 3) {
-                        node.normals.push_back({normals[i], normals[i + 1], normals[1 + 2]});
+                        node.normal.push_back({normals[i], normals[i + 1], normals[1 + 2]});
                     }
                     break;
                 }
@@ -597,7 +591,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
             int widthSegments = std::get<int>(paramBlock[4]);
             int heightSegments = std::get<int>(paramBlock[5]);
 
-            node.vertices = {
+            node.vertex = {
                 { -length, -width, -height },
                 {  length, -width, -height },
                 { -length,  width, -height },
@@ -768,7 +762,7 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
             int lengthSegments = std::get<int>(paramBlock[2]);
             int widthSegments = std::get<int>(paramBlock[3]);
 
-            node.vertices = {
+            node.vertex = {
                 { -length, -width, 0 },
                 {  length, -width, 0 },
                 { -length,  width, 0 },
@@ -792,26 +786,25 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
             break;
         auto& polyChunk = (*pPolyChunk);
 
-        auto vertices = getProperty<float>(polyChunk, 0x0100);
-        for (size_t i = 1; i + 3 < vertices.size(); i += 4) {
-            node.vertices.push_back({vertices[i + 1], vertices[i + 2], vertices[1 + 3]});
+        auto vertex = getProperty<float>(polyChunk, 0x0100);
+        for (size_t i = 1; i + 3 < vertex.size(); i += 4) {
+            node.vertex.push_back({vertex[i + 1], vertex[i + 2], vertex[1 + 3]});
         }
 
-        auto vertexIndices = getProperty<uint16_t>(polyChunk, 0x011A);
-        for (size_t i = 2; i + 1 < vertexIndices.size(); i += 2) {
-            uint32_t count = (vertexIndices[i] | vertexIndices[i + 1] << 16) * 2;
-            if (i + 2 + count + 1 > vertexIndices.size()) {
-                log("%s is corrupted", "Editable Poly");
-                log("\n");
+        auto vertexArray = getProperty<uint16_t>(polyChunk, 0x011A);
+        for (size_t i = 2; i + 1 < vertexArray.size(); i += 2) {
+            uint32_t count = (vertexArray[i] | vertexArray[i + 1] << 16) * 2;
+            if (i + 2 + count + 1 > vertexArray.size()) {
+                log(true, "%s is corrupted", "Editable Poly");
                 break;
             }
             i += 2;
-            node.vertexIndices.push_back({});
+            node.vertexArray.push_back({});
             for (size_t j = i, list = i + count; j < list; j += 2) {
-                node.vertexIndices.back().push_back(vertexIndices[j] | vertexIndices[j + 1] << 16);
+                node.vertexArray.back().push_back(vertexArray[j] | vertexArray[j + 1] << 16);
             }
             i += count;
-            uint16_t flags = vertexIndices[i];
+            uint16_t flags = vertexArray[i];
             i += 1;
             if (flags & 0x01)   i += 2;
             if (flags & 0x08)   i += 1;
@@ -820,80 +813,81 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
             i -= 2;
         }
 
-        auto coordinates = getProperty<float>(polyChunk, 0x0128);
-        for (size_t i = 1; i + 2 < coordinates.size(); i += 3) {
-            node.coordinates.push_back({coordinates[i], coordinates[i + 1], coordinates[1 + 2]});
+        auto texture = getProperty<float>(polyChunk, 0x0128);
+        for (size_t i = 1; i + 2 < texture.size(); i += 3) {
+            node.texture.push_back({texture[i], texture[i + 1], texture[1 + 2]});
         }
 
-        auto coordinateIndices = getProperty<uint32_t>(polyChunk, 0x012B);
-        for (size_t i = 0; i < coordinateIndices.size(); ++i) {
-            uint32_t count = coordinateIndices[i];
-            if (i + 1 + count > coordinateIndices.size()) {
-                log("%s is corrupted", "Editable Poly");
-                log("\n");
+        auto textureArray = getProperty<uint32_t>(polyChunk, 0x012B);
+        for (size_t i = 0; i < textureArray.size(); ++i) {
+            uint32_t count = textureArray[i];
+            if (i + 1 + count > textureArray.size()) {
+                log(true, "%s is corrupted", "Editable Poly");
                 break;
             }
             i += 1;
-            node.coordinateIndices.push_back({});
+            node.textureArray.push_back({});
             for (size_t j = i, list = i + count; j < list; ++j) {
-                node.coordinateIndices.back().push_back(coordinateIndices[j]);
+                node.textureArray.back().push_back(textureArray[j]);
             }
             i += count;
             i -= 1;
         }
 
-//      auto polygonsIndices = getProperty<uint32_t>(polyChunk, 0x0310);
-//      for (size_t i = 0; i < polygonsIndices.size(); ++i) {
-//          uint32_t count = polygonsIndices[i];
-//          if (i + 1 + count > polygonsIndices.size()) {
-//              log("%s is corrupted", "Editable Poly");
-//              log("\n");
+//      auto polygonsArray = getProperty<uint32_t>(polyChunk, 0x0310);
+//      for (size_t i = 0; i < polygonsArray.size(); ++i) {
+//          uint32_t count = polygonsArray[i];
+//          if (i + 1 + count > polygonsArray.size()) {
+//              log(true, "%s is corrupted", "Editable Poly");
 //              break;
 //          }
 //          i += 1;
-//          node.polygonIndices.push_back({});
+//          node.polygonsArray.push_back({});
 //          for (size_t j = i, list = i + count; j < list; ++j) {
-//              node.polygonIndices.back().push_back(polygonsIndices[j]);
+//              node.polygonsArray.back().push_back(polygonsArray[j]);
 //          }
 //          i += count;
 //          i -= 1;
 //      }
 
-        if (node.vertexIndices.size() && node.coordinateIndices.size()) {
-            bool corrupted = (node.vertexIndices.size() != node.coordinateIndices.size());
+        if (node.vertexArray.size() && node.textureArray.size()) {
+            bool corrupted = (node.vertexArray.size() != node.textureArray.size());
             if (corrupted == false) {
-                for (size_t i = 0; i < node.vertexIndices.size() && i < node.coordinateIndices.size(); ++i) {
-                    if (node.vertexIndices[i].size() != node.coordinateIndices[i].size()) {
+                for (size_t i = 0; i < node.vertexArray.size() && i < node.textureArray.size(); ++i) {
+                    if (node.vertexArray[i].size() != node.textureArray[i].size()) {
                         corrupted = true;
                         break;
                     }
                 }
             }
             if (corrupted) {
-                log("%s is corrupted (%zd:%zd)", "Editable Poly", node.vertexIndices.size(), node.coordinateIndices.size());
-                log("\n");
+                log(true, "%s is corrupted (%zd:%zd)", "Editable Poly", node.vertexArray.size(), node.textureArray.size());
             }
         }
 
-        size_t totalVertexIndices = 0;
-        size_t totalCoordinateIndices = 0;
-        for (auto const& indices : node.vertexIndices) {
-            totalVertexIndices += indices.size();
+        size_t totalVertexArray = 0;
+        size_t totalTextureArray = 0;
+//      size_t totalPolygonArray = 0;
+        for (auto const& array : node.vertexArray) {
+            totalVertexArray += array.size();
         }
-        for (auto const& indices : node.coordinateIndices) {
-            totalCoordinateIndices += indices.size();
+        for (auto const& array : node.textureArray) {
+            totalTextureArray += array.size();
         }
+//      for (auto const& array : node.polygonArray) {
+//          totalPolygonArray += array.size();
+//      }
 
         node.text += format("Primitive : %s", "Editable Poly") + '\n';
-        node.text += format("Vertices : %zd", node.vertices.size()) + '\n';
-        node.text += format("Coordinates : %zd", node.coordinates.size()) + '\n';
-        node.text += format("Vertex Indices : %zd (%zd)", node.vertexIndices.size(), totalVertexIndices) + '\n';
-        node.text += format("Coordinate Indices : %zd (%zd)", node.coordinateIndices.size(), totalCoordinateIndices) + '\n';
-//      node.text += format("Polygon Indices : %zd", node.polygonIndices.size()) + '\n';
-        node.text += format("Vertex Colors : %zd", node.vertexColors.size()) + '\n';
-//      node.text += format("Vertex Illums : %zd", node.vertexIllums.size()) + '\n';
-        node.text += format("Vertex Alphas : %zd", node.vertexAlphas.size()) + '\n';
-        node.text += format("Normals : %zd", node.normals.size()) + '\n';
+        node.text += format("Vertex : %zd", node.vertex.size()) + '\n';
+        node.text += format("Texture : %zd", node.texture.size()) + '\n';
+        node.text += format("Normal : %zd", node.normal.size()) + '\n';
+        node.text += format("Vertex Color : %zd", node.vertexColor.size()) + '\n';
+//      node.text += format("Vertex Illum : %zd", node.vertexIllum.size()) + '\n';
+        node.text += format("Vertex Alpha : %zd", node.vertexAlpha.size()) + '\n';
+        node.text += format("Vertex Array : %zd (%zd)", node.vertexArray.size(), totalVertexArray) + '\n';
+        node.text += format("Texture Array : %zd (%zd)", node.textureArray.size(), totalTextureArray) + '\n';
+//      node.text += format("Polygon Array : %zd (%zd)", node.polygonArray.size(), totalPolygonArray) + '\n';
         return;
     }
     default:
@@ -902,12 +896,11 @@ static void getPrimitive(int(*log)(char const*, ...), xxMaxNode::Chunk const& sc
     checkClass(log, *pChunk, {}, 0);
 }
 
-xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
+xxMaxNode* xxMaxReader(char const* name, int(*log)(bool, char const*, ...))
 {
     FILE* file = fopen(name, "rb");
     if (file == nullptr) {
-        log("File is not found", name);
-        log("\n");
+        log(true, "File is not found", name);
         return nullptr;
     }
 
@@ -917,8 +910,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
 
     root = new xxMaxNode;
     if (root == nullptr) {
-        log("Out of memory");
-        log("\n");
+        log(true, "Out of memory");
         THROW;
     }
 
@@ -973,8 +965,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
 
     // Root
     if (root->scene->empty()) {
-        log("Scene is empty");
-        log("\n");
+        log(true, "Scene is empty");
         THROW;
     }
     auto& scene = root->scene->front();
@@ -996,8 +987,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
     default:
         if (scene.type >= 0x2000)
             break;
-        log("Scene type %04X is not supported", scene.type);
-        log("\n");
+        log(true, "Scene type %04X is not supported", scene.type);
         THROW;
     }
 
@@ -1007,8 +997,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
         auto [className, classData] = getClass(*root->classDirectory, chunk.type);
         if (className.empty()) {
             if (chunk.type != 0x2032) {
-                log("Class %04X is not found! (Chunk:%X)", chunk.type, i);
-                log("\n");
+                log(true, "Class %04X is not found! (Chunk:%X)", chunk.type, i);
             }
             continue;
         }
@@ -1044,8 +1033,7 @@ xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...))
                 parent = found;
             }
             else {
-                log("Parent %d is not found! (Chunk:%d)", index, i);
-                log("\n");
+                log(true, "Parent %d is not found! (Chunk:%d)", index, i);
             }
         }
 

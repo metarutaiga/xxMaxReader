@@ -17,23 +17,23 @@ public:
 
 public:
     std::string name;
+    std::string text;
 
     Point3 position = { 0, 0, 0 };
     Point4 rotation = { 0, 0, 0, 1 };
     Point3 scale = { 1, 1, 1 };
 
-    std::vector<Point3> vertices;
-    std::vector<Point3> coordinates;
-    std::vector<std::vector<uint32_t>> vertexIndices;
-    std::vector<std::vector<uint32_t>> coordinateIndices;
-//  std::vector<std::vector<uint32_t>> polygonIndices;
+    std::vector<Point3> vertex;
+    std::vector<Point3> texture;
 
-    std::vector<Point3> vertexColors;
-//  std::vector<Point3> vertexIllums;
-    std::vector<Point3> vertexAlphas;
-    std::vector<Point3> normals;
+    std::vector<Point3> normal;
+    std::vector<Point3> vertexColor;
+//  std::vector<Point3> vertexIllum;
+    std::vector<Point3> vertexAlpha;
 
-    std::string text;
+    std::vector<std::vector<uint32_t>> vertexArray;
+    std::vector<std::vector<uint32_t>> textureArray;
+//  std::vector<std::vector<uint32_t>> polygonArray;
 
     uint16_t padding = 0;
 
@@ -78,4 +78,4 @@ public:
     }
 };
 
-xxMaxNode* xxMaxReader(char const* name, int(*log)(char const*, ...));
+xxMaxNode* xxMaxReader(char const* name, int(*log)(bool, char const*, ...));

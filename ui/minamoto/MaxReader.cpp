@@ -17,7 +17,7 @@ static ImGuiFileDialog* fileDialog;
 //------------------------------------------------------------------------------
 static xxMaxNode* root;
 //------------------------------------------------------------------------------
-static int MaxReaderLog(char const* format, ...)
+static int MaxReaderLog(bool breakline, char const* format, ...)
 {
     va_list args;
 
@@ -32,6 +32,11 @@ static int MaxReaderLog(char const* format, ...)
     int result = vsnprintf(info.data() + pos, length, format, args);
     info.pop_back();
     va_end(args);
+
+    if (breakline)
+    {
+        info += '\n';
+    }
 
     return result;
 }
@@ -205,18 +210,18 @@ static bool NodeFinder(xxMaxNode& node, std::function<void(std::string& text)> s
             ImGui::Text("Position:%g, %g, %g", child.position[0], child.position[1], child.position[2]);
             ImGui::Text("Rotation:%g, %g, %g, %g", child.rotation[0], child.rotation[1], child.rotation[2], child.rotation[3]);
             ImGui::Text("Scale:%g, %g, %g", child.scale[0], child.scale[1], child.scale[2]);
-            if (child.vertices.empty() == false)
+            if (child.vertex.empty() == false)
             {
                 ImGui::Separator();
-                ImGui::Text("Vertices : %zd", child.vertices.size());
-                ImGui::Text("Coordinates : %zd", child.coordinates.size());
-                ImGui::Text("Vertex Indices : %zd", child.vertexIndices.size());
-                ImGui::Text("Coordinate Indices : %zd", child.coordinateIndices.size());
-//              ImGui::Text("Polygon Indices : %zd", child.polygonIndices.size());
-                ImGui::Text("Vertex Colors : %zd", child.vertexColors.size());
-//              ImGui::Text("Vertex Illums : %zd", child.vertexIllums.size());
-                ImGui::Text("Vertex Alphas : %zd", child.vertexAlphas.size());
-                ImGui::Text("Normals : %zd", child.normals.size());
+                ImGui::Text("Vertex : %zd", child.vertex.size());
+                ImGui::Text("Texture : %zd", child.texture.size());
+                ImGui::Text("Normal : %zd", child.normal.size());
+                ImGui::Text("Vertex Color : %zd", child.vertexColor.size());
+//              ImGui::Text("Vertex Illum : %zd", child.vertexIllum.size());
+                ImGui::Text("Vertex Alpha : %zd", child.vertexAlpha.size());
+                ImGui::Text("Vertex Array : %zd", child.vertexArray.size());
+                ImGui::Text("Texture Array : %zd", child.textureArray.size());
+//              ImGui::Text("Polygon Array : %zd", child.polygonArray.size());
             }
             ImGui::EndTooltip();
 
