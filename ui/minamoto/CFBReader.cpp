@@ -1,8 +1,8 @@
 //==============================================================================
-// xxMaxReader : CFBReader Source
+// miMAX : CFBReader Source
 //
 // Copyright (c) 2025 TAiGA
-// https://github.com/metarutaiga/xxmaxreader
+// https://github.com/metarutaiga/miMAX
 //==============================================================================
 #include "MaxReaderPCH.h"
 #include <xxGraphicPlus/xxFile.h>

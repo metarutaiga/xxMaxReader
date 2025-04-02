@@ -1,8 +1,8 @@
 //==============================================================================
-// xxMaxReader : MaxReaderEntry Source
+// miMAX : MaxReaderEntry Source
 //
 // Copyright (c) 2025 TAiGA
-// https://github.com/metarutaiga/xxmaxreader
+// https://github.com/metarutaiga/miMAX
 //==============================================================================
 #include "MaxReaderPCH.h"
 #include "MaxReader.h"

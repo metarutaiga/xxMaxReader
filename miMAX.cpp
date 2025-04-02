@@ -1,6 +1,6 @@
 /*
     2012 Kaetemi https://blog.kaetemi.be
-    2025 TAiGA   https://github.com/metarutaiga/xxmaxreader
+    2025 TAiGA   https://github.com/metarutaiga/miMAX
 */
 #include <stdio.h>
 #include <functional>

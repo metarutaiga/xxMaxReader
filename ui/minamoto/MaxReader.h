@@ -1,8 +1,8 @@
 //==============================================================================
-// xxMaxReader : MaxReader Header
+// miMAX : MaxReader Header
 //
 // Copyright (c) 2025 TAiGA
-// https://github.com/metarutaiga/xxmaxreader
+// https://github.com/metarutaiga/miMAX
 //==============================================================================
 #pragma once
 
