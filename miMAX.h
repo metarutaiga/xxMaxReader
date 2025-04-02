@@ -78,4 +78,4 @@ public:
     }
 };
 
-miMaxNode* miMAXOpenFile(char const* name, int(*log)(bool, char const*, ...));
+miMaxNode* miMAXOpenFile(char const* name, int(*log)(char const*, ...));

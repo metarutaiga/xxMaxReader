@@ -17,7 +17,7 @@ static ImGuiFileDialog* fileDialog;
 //------------------------------------------------------------------------------
 static miMaxNode* root;
 //------------------------------------------------------------------------------
-static int MaxReaderLog(bool breakline, char const* format, ...)
+static int MaxReaderLog(char const* format, ...)
 {
     va_list args;
 
@@ -33,10 +33,7 @@ static int MaxReaderLog(bool breakline, char const* format, ...)
     info.pop_back();
     va_end(args);
 
-    if (breakline)
-    {
-        info += '\n';
-    }
+    info += '\n';
 
     return result;
 }

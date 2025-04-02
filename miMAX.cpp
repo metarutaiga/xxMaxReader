@@ -258,12 +258,12 @@ static miMaxNode::Chunk const* getLinkChunk(miMaxNode::Chunk const& scene, miMax
     return output;
 }
 
-static bool checkClass(int(*log)(bool, char const*, ...), miMaxNode::Chunk const& chunk, ClassID classID, miMaxNode::SuperClassID superClassID)
+static bool checkClass(int(*log)(char const*, ...), miMaxNode::Chunk const& chunk, ClassID classID, miMaxNode::SuperClassID superClassID)
 {
     if (chunk.classData.classID == classID && chunk.classData.superClassID == superClassID)
         return true;
     auto& classData = chunk.classData;
-    log(true, "Unknown (%08X-%08X-%08X-%08X) %s", classData.dllIndex, classData.classID.first, classData.classID.second, classData.superClassID, chunk.name.c_str());
+    log("Unknown (%08X-%08X-%08X-%08X) %s", classData.dllIndex, classData.classID.first, classData.classID.second, classData.superClassID, chunk.name.c_str());
     return false;
 }
 
@@ -348,13 +348,13 @@ static std::vector<std::tuple<float, int, Point3>> getParamBlock(miMaxNode::Chun
     return output;
 }
 
-static void getPositionRotationScale(int(*log)(bool, char const*, ...), miMaxNode::Chunk const& scene, miMaxNode::Chunk const& chunk, miMaxNode& node)
+static void getPositionRotationScale(int(*log)(char const*, ...), miMaxNode::Chunk const& scene, miMaxNode::Chunk const& chunk, miMaxNode& node)
 {
-    // ????????-00002007-00000000-00009003 Bezier Float             HYBRIDINTERP_FLOAT_CLASS_ID + FLOAT_SUPERCLASS_ID
-
     // FFFFFFFF-00002005-00000000-00009008 Position/Rotation/Scale  PRS_CONTROL_CLASS_ID + MATRIX3_SUPERCLASS_ID
     if (checkClass(log, chunk, PRS_CONTROL_CLASS_ID, MATRIX3_SUPERCLASS_ID) == false)
         return;
+
+    // ????????-00002007-00000000-00009003 Bezier Float     HYBRIDINTERP_FLOAT_CLASS_ID + FLOAT_SUPERCLASS_ID
 
     // FFFFFFFF-00002002-00000000-0000900B Linear Position  LININTERP_POSITION_CLASS_ID + POSITION_SUPERCLASS_ID
     // ????????-00002008-00000000-0000900B Bezier Position  HYBRIDINTERP_POSITION_CLASS_ID + POSITION_SUPERCLASS_ID
@@ -381,7 +381,7 @@ static void getPositionRotationScale(int(*log)(bool, char const*, ...), miMaxNod
                         node.position[i] = propertyFloat[0];
                         continue;
                     }
-                    log(true, "Value is not found (%s)", position->name.c_str());
+                    log("Value is not found (%s)", position->name.c_str());
                 }
                 continue;
             }
@@ -398,7 +398,7 @@ static void getPositionRotationScale(int(*log)(bool, char const*, ...), miMaxNod
                     node.position[2] = propertyFloat[2];
                     continue;
                 }
-                log(true, "Value is not found (%s)", positionXYZ->name.c_str());
+                log("Value is not found (%s)", positionXYZ->name.c_str());
                 continue;
             }
         }
@@ -429,7 +429,7 @@ static void getPositionRotationScale(int(*log)(bool, char const*, ...), miMaxNod
                         node.rotation[i] = propertyFloat[0];
                         continue;
                     }
-                    log(true, "Value is not found (%s)", rotation->name.c_str());
+                    log("Value is not found (%s)", rotation->name.c_str());
                 }
                 eulerToQuaternion(node.rotation.data(), node.rotation.data());
                 continue;
@@ -451,7 +451,7 @@ static void getPositionRotationScale(int(*log)(bool, char const*, ...), miMaxNod
                     eulerToQuaternion(node.rotation.data(), propertyFloat.data());
                     continue;
                 }
-                log(true, "Value is not found (%s)", rotationXYZ->name.c_str());
+                log("Value is not found (%s)", rotationXYZ->name.c_str());
                 continue;
             }
         }
@@ -484,7 +484,7 @@ static void getPositionRotationScale(int(*log)(bool, char const*, ...), miMaxNod
                     node.scale[0] = node.scale[1] = node.scale[2] = propertyFloat[0];
                     continue;
                 }
-                log(true, "Value is not found (%s)", scale->name.c_str());
+                log("Value is not found (%s)", scale->name.c_str());
                 continue;
             }
         }
@@ -492,7 +492,7 @@ static void getPositionRotationScale(int(*log)(bool, char const*, ...), miMaxNod
     }
 }
 
-static void getPrimitive(int(*log)(bool, char const*, ...), miMaxNode::Chunk const& scene, miMaxNode::Chunk const& chunk, miMaxNode& node)
+static void getPrimitive(int(*log)(char const*, ...), miMaxNode::Chunk const& scene, miMaxNode::Chunk const& chunk, miMaxNode& node)
 {
     auto* pChunk = &chunk;
     if ((*pChunk).classData.superClassID != GEOMOBJECT_SUPERCLASS_ID) {
@@ -524,7 +524,23 @@ static void getPrimitive(int(*log)(bool, char const*, ...), miMaxNode::Chunk con
                     continue;
                 auto paramBlock = getParamBlock(*pParamBlock);
 
+                // ????????-4AA52AE3-35CA1CDE-00000810  EDIT_NORMALS_CLASS_ID + OSM_SUPERCLASS_ID
+                // ????????-7EBB4645-7BE2044B-00000810  PAINTLAYERMOD_CLASS_ID + OSM_SUPERCLASS_ID
                 switch (class64(chunk.classData.classID)) {
+                case class64(EDIT_NORMALS_CLASS_ID): {
+                    auto* pNormalChunk = getChunk(*pObjectChunk, 0x2512, 0x0240);
+                    if (pNormalChunk == nullptr)
+                        pNormalChunk = getChunk(*pObjectChunk, 0x2512, 0x0250);
+                    if (pNormalChunk == nullptr)
+                        break;
+                    auto normals = getProperty<float>(*pNormalChunk, 0x0110);
+                    if (normals.empty())
+                        break;
+                    for (size_t i = 1; i + 2 < normals.size(); i += 3) {
+                        node.normal.push_back({normals[i], normals[i + 1], normals[1 + 2]});
+                    }
+                    break;
+                }
                 case class64(PAINTLAYERMOD_CLASS_ID):
                     if (paramBlock.size() > 1) {
                         auto* pColorChunk = getChunk(*pObjectChunk, 0x2512);
@@ -543,20 +559,6 @@ static void getPrimitive(int(*log)(bool, char const*, ...), miMaxNode::Chunk con
                         }
                     }
                     break;
-                case class64(EDIT_NORMALS_CLASS_ID): {
-                    auto* pNormalChunk = getChunk(*pObjectChunk, 0x2512, 0x0240);
-                    if (pNormalChunk == nullptr)
-                        pNormalChunk = getChunk(*pObjectChunk, 0x2512, 0x0250);
-                    if (pNormalChunk == nullptr)
-                        break;
-                    auto normals = getProperty<float>(*pNormalChunk, 0x0110);
-                    if (normals.empty())
-                        break;
-                    for (size_t i = 1; i + 2 < normals.size(); i += 3) {
-                        node.normal.push_back({normals[i], normals[i + 1], normals[1 + 2]});
-                    }
-                    break;
-                }
                 default:
                     break;
                 }
@@ -796,7 +798,7 @@ static void getPrimitive(int(*log)(bool, char const*, ...), miMaxNode::Chunk con
         for (size_t i = 2; i + 1 < vertexArray.size(); i += 2) {
             uint32_t count = (vertexArray[i] | vertexArray[i + 1] << 16) * 2;
             if (i + 2 + count + 1 > vertexArray.size()) {
-                log(true, "%s is corrupted", "Editable Poly");
+                log("%s is corrupted", "Editable Poly");
                 break;
             }
             i += 2;
@@ -823,7 +825,7 @@ static void getPrimitive(int(*log)(bool, char const*, ...), miMaxNode::Chunk con
         for (size_t i = 0; i < textureArray.size(); ++i) {
             uint32_t count = textureArray[i];
             if (i + 1 + count > textureArray.size()) {
-                log(true, "%s is corrupted", "Editable Poly");
+                log("%s is corrupted", "Editable Poly");
                 break;
             }
             i += 1;
@@ -839,7 +841,7 @@ static void getPrimitive(int(*log)(bool, char const*, ...), miMaxNode::Chunk con
 //      for (size_t i = 0; i < polygonsArray.size(); ++i) {
 //          uint32_t count = polygonsArray[i];
 //          if (i + 1 + count > polygonsArray.size()) {
-//              log(true, "%s is corrupted", "Editable Poly");
+//              log("%s is corrupted", "Editable Poly");
 //              break;
 //          }
 //          i += 1;
@@ -862,7 +864,7 @@ static void getPrimitive(int(*log)(bool, char const*, ...), miMaxNode::Chunk con
                 }
             }
             if (corrupted) {
-                log(true, "%s is corrupted (%zd:%zd)", "Editable Poly", node.vertexArray.size(), node.textureArray.size());
+                log("%s is corrupted (%zd:%zd)", "Editable Poly", node.vertexArray.size(), node.textureArray.size());
             }
         }
 
@@ -897,11 +899,11 @@ static void getPrimitive(int(*log)(bool, char const*, ...), miMaxNode::Chunk con
     checkClass(log, *pChunk, {}, 0);
 }
 
-miMaxNode* miMAXOpenFile(char const* name, int(*log)(bool, char const*, ...))
+miMaxNode* miMAXOpenFile(char const* name, int(*log)(char const*, ...))
 {
     FILE* file = fopen(name, "rb");
     if (file == nullptr) {
-        log(true, "File is not found", name);
+        log("File is not found", name);
         return nullptr;
     }
 
@@ -911,7 +913,7 @@ miMaxNode* miMAXOpenFile(char const* name, int(*log)(bool, char const*, ...))
 
     root = new miMaxNode;
     if (root == nullptr) {
-        log(true, "Out of memory");
+        log("Out of memory");
         THROW;
     }
 
@@ -966,7 +968,7 @@ miMaxNode* miMAXOpenFile(char const* name, int(*log)(bool, char const*, ...))
 
     // Root
     if (root->scene->empty()) {
-        log(true, "Scene is empty");
+        log("Scene is empty");
         THROW;
     }
     auto& scene = root->scene->front();
@@ -988,7 +990,7 @@ miMaxNode* miMAXOpenFile(char const* name, int(*log)(bool, char const*, ...))
     default:
         if (scene.type >= 0x2000)
             break;
-        log(true, "Scene type %04X is not supported", scene.type);
+        log("Scene type %04X is not supported", scene.type);
         THROW;
     }
 
@@ -998,7 +1000,7 @@ miMaxNode* miMAXOpenFile(char const* name, int(*log)(bool, char const*, ...))
         auto [className, classData] = getClass(*root->classDirectory, chunk.type);
         if (className.empty()) {
             if (chunk.type != 0x2032) {
-                log(true, "Class %04X is not found! (Chunk:%X)", chunk.type, i);
+                log("Class %04X is not found! (Chunk:%X)", chunk.type, i);
             }
             continue;
         }
@@ -1017,8 +1019,7 @@ miMaxNode* miMAXOpenFile(char const* name, int(*log)(bool, char const*, ...))
         auto& classData = chunk.classData;
 
         // FFFFFFFF-00000001-00000000-00000001 - Node
-        // FFFFFFFF-00000002-00000000-00000001 - RootNode
-        // BASENODE_SUPERCLASS_ID
+        // FFFFFFFF-00000002-00000000-00000001 - RootNode   BASENODE_SUPERCLASS_ID
         if (classData.superClassID != BASENODE_SUPERCLASS_ID)
             continue;
 
@@ -1034,7 +1035,7 @@ miMaxNode* miMAXOpenFile(char const* name, int(*log)(bool, char const*, ...))
                 parent = found;
             }
             else {
-                log(true, "Parent %d is not found! (Chunk:%d)", index, i);
+                log("Parent %d is not found! (Chunk:%d)", index, i);
             }
         }
 
