@@ -35,7 +35,7 @@ public:
     std::vector<std::vector<uint32_t>> textureArray;
 //  std::vector<std::vector<uint32_t>> polygonArray;
 
-    uint16_t padding = 0;
+    int padding = 0;
 
 public:
     typedef std::pair<uint32_t, uint32_t> ClassID;
