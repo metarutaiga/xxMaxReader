@@ -28,12 +28,11 @@ public:
 
     std::vector<Point3> normal;
     std::vector<Point3> vertexColor;
-//  std::vector<Point3> vertexIllum;
+    std::vector<Point3> vertexIllum;
     std::vector<Point3> vertexAlpha;
 
     std::vector<std::vector<uint32_t>> vertexArray;
     std::vector<std::vector<uint32_t>> textureArray;
-//  std::vector<std::vector<uint32_t>> polygonArray;
 
     int padding = 0;
 

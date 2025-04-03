@@ -228,9 +228,10 @@ static std::tuple<std::string, std::string> getDll(miMaxNode::Chunk const& dllDi
     return { UTF16ToUTF8(propertyDllFile.data(), propertyDllFile.size()), UTF16ToUTF8(propertyDllName.data(), propertyDllName.size()) };
 }
 
-static std::map<uint32_t, uint32_t> getLink(miMaxNode::Chunk const& chunk)
+template <class order = std::less<uint32_t>>
+static std::map<uint32_t, uint32_t, order> getLink(miMaxNode::Chunk const& chunk)
 {
-    std::map<uint32_t, uint32_t> link;
+    std::map<uint32_t, uint32_t, order> link;
     auto propertyLink2034 = getProperty<uint32_t>(chunk, 0x2034);
     auto propertyLink2035 = getProperty<uint32_t>(chunk, 0x2035);
     for (uint32_t i = 0; i < propertyLink2034.size(); ++i)
@@ -498,7 +499,7 @@ static void getPrimitive(int(*log)(char const*, ...), miMaxNode::Chunk const& sc
     if ((*pChunk).classData.superClassID != GEOMOBJECT_SUPERCLASS_ID) {
         if ((*pChunk).type != 0x2032)
             return;
-        auto link = getLink(*pChunk);
+        auto link = getLink<std::greater<uint32_t>>(*pChunk);
         for (auto [linkIndex, chunkIndex] : link) {
             if (scene.size() <= chunkIndex)
                 continue;
@@ -539,6 +540,7 @@ static void getPrimitive(int(*log)(char const*, ...), miMaxNode::Chunk const& sc
                     for (size_t i = 1; i + 2 < normals.size(); i += 3) {
                         node.normal.push_back({normals[i], normals[i + 1], normals[1 + 2]});
                     }
+                    node.text += format("Normal : %zd", node.normal.size()) + '\n';
                     break;
                 }
                 case class64(PAINTLAYERMOD_CLASS_ID):
@@ -549,12 +551,15 @@ static void getPrimitive(int(*log)(char const*, ...), miMaxNode::Chunk const& sc
                         switch (std::get<int>(paramBlock[1])) {
                         default:
                             node.vertexColor = getProperty<Point3>(*pColorChunk, 0x0110);
+                            node.text += format("Vertex Color : %zd", node.vertexColor.size()) + '\n';
                             break;
                         case -1:
-//                          node.vertexIllum = getProperty<Point3>(*pColorChunk, 0x0110);
+                            node.vertexIllum = getProperty<Point3>(*pColorChunk, 0x0110);
+                            node.text += format("Vertex Illum : %zd", node.vertexIllum.size()) + '\n';
                             break;
                         case -2:
                             node.vertexAlpha = getProperty<Point3>(*pColorChunk, 0x0110);
+                            node.text += format("Vertex Alpha : %zd", node.vertexAlpha.size()) + '\n';
                             break;
                         }
                     }
@@ -781,8 +786,64 @@ static void getPrimitive(int(*log)(char const*, ...), miMaxNode::Chunk const& sc
         }
         checkClass(log, *pParamBlock, {}, 0);
         break;
-    case class64(EDITTRIOBJ_CLASS_ID):
-        break;
+    case class64(EDITTRIOBJ_CLASS_ID): {
+        auto* pPolyChunk = getChunk(*pChunk, 0x08FE);
+        if (pPolyChunk == nullptr)
+            break;
+        auto& polyChunk = (*pPolyChunk);
+
+        auto vertexArray = getProperty<int>(polyChunk, 0x0912);
+        for (size_t i = 1; i + 4 < vertexArray.size(); i += 5) {
+            node.vertexArray.push_back({});
+            node.vertexArray.back().push_back(vertexArray[i]);
+            node.vertexArray.back().push_back(vertexArray[i + 1]);
+            node.vertexArray.back().push_back(vertexArray[i + 2]);
+        }
+
+        auto vertex = getProperty<float>(polyChunk, 0x0914);
+        for (size_t i = 1; i + 2 < vertex.size(); i += 3) {
+            node.vertex.push_back({vertex[i], vertex[i + 1], vertex[i + 2]});
+        }
+
+        auto texture = getProperty<float>(polyChunk, 0x0916);
+        if (texture.empty())
+            texture = getProperty<float>(polyChunk, 0x2394);
+        for (size_t i = 1; i + 2 < texture.size(); i += 3) {
+            node.texture.push_back({texture[i], texture[i + 1], texture[i + 2]});
+        }
+
+        auto textureArray = getProperty<int>(polyChunk, 0x0918);
+        if (textureArray.empty())
+            textureArray = getProperty<int>(polyChunk, 0x2396);
+        for (size_t i = 1; i + 2 < textureArray.size(); i += 3) {
+            node.textureArray.push_back({});
+            node.textureArray.back().push_back(textureArray[i]);
+            node.textureArray.back().push_back(textureArray[i + 1]);
+            node.textureArray.back().push_back(textureArray[i + 2]);
+        }
+
+        if (node.vertexArray.size() && node.textureArray.size()) {
+            if (node.vertexArray.size() != node.textureArray.size()) {
+                log("%s is corrupted (%zd:%zd)", "Editable Mesh", node.vertexArray.size(), node.textureArray.size());
+            }
+        }
+
+        size_t totalVertexArray = 0;
+        size_t totalTextureArray = 0;
+        for (auto const& array : node.vertexArray) {
+            totalVertexArray += array.size();
+        }
+        for (auto const& array : node.textureArray) {
+            totalTextureArray += array.size();
+        }
+
+        node.text += format("Primitive : %s", "Editable Mesh") + '\n';
+        node.text += format("Vertex : %zd", node.vertex.size()) + '\n';
+        node.text += format("Texture : %zd", node.texture.size()) + '\n';
+        node.text += format("Vertex Array : %zd (%zd)", node.vertexArray.size(), totalVertexArray) + '\n';
+        node.text += format("Texture Array : %zd (%zd)", node.textureArray.size(), totalTextureArray) + '\n';
+        return;
+    }
     case class64(EPOLYOBJ_CLASS_ID): {
         auto* pPolyChunk = getChunk(*pChunk, 0x08FE);
         if (pPolyChunk == nullptr)
@@ -837,22 +898,6 @@ static void getPrimitive(int(*log)(char const*, ...), miMaxNode::Chunk const& sc
             i -= 1;
         }
 
-//      auto polygonsArray = getProperty<uint32_t>(polyChunk, 0x0310);
-//      for (size_t i = 0; i < polygonsArray.size(); ++i) {
-//          uint32_t count = polygonsArray[i];
-//          if (i + 1 + count > polygonsArray.size()) {
-//              log("%s is corrupted", "Editable Poly");
-//              break;
-//          }
-//          i += 1;
-//          node.polygonsArray.push_back({});
-//          for (size_t j = i, list = i + count; j < list; ++j) {
-//              node.polygonsArray.back().push_back(polygonsArray[j]);
-//          }
-//          i += count;
-//          i -= 1;
-//      }
-
         if (node.vertexArray.size() && node.textureArray.size()) {
             bool corrupted = (node.vertexArray.size() != node.textureArray.size());
             if (corrupted == false) {
@@ -870,27 +915,18 @@ static void getPrimitive(int(*log)(char const*, ...), miMaxNode::Chunk const& sc
 
         size_t totalVertexArray = 0;
         size_t totalTextureArray = 0;
-//      size_t totalPolygonArray = 0;
         for (auto const& array : node.vertexArray) {
             totalVertexArray += array.size();
         }
         for (auto const& array : node.textureArray) {
             totalTextureArray += array.size();
         }
-//      for (auto const& array : node.polygonArray) {
-//          totalPolygonArray += array.size();
-//      }
 
         node.text += format("Primitive : %s", "Editable Poly") + '\n';
         node.text += format("Vertex : %zd", node.vertex.size()) + '\n';
         node.text += format("Texture : %zd", node.texture.size()) + '\n';
-        node.text += format("Normal : %zd", node.normal.size()) + '\n';
-        node.text += format("Vertex Color : %zd", node.vertexColor.size()) + '\n';
-//      node.text += format("Vertex Illum : %zd", node.vertexIllum.size()) + '\n';
-        node.text += format("Vertex Alpha : %zd", node.vertexAlpha.size()) + '\n';
         node.text += format("Vertex Array : %zd (%zd)", node.vertexArray.size(), totalVertexArray) + '\n';
         node.text += format("Texture Array : %zd (%zd)", node.textureArray.size(), totalTextureArray) + '\n';
-//      node.text += format("Polygon Array : %zd (%zd)", node.polygonArray.size(), totalPolygonArray) + '\n';
         return;
     }
     default:
