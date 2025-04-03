@@ -508,17 +508,17 @@ static void getPrimitive(int(*log)(char const*, ...), miMaxNode::Chunk const& sc
                 continue;
             if (chunk.classData.superClassID == OSM_SUPERCLASS_ID) {
                 size_t index = 0;
-                miMaxNode::Chunk const* pObjectChunk = nullptr;
+                miMaxNode::Chunk const* pModifierChunk = nullptr;
                 for (auto& child : (*pChunk)) {
                     if (child.type == 0x2500) {
                         if (index == linkIndex) {
-                            pObjectChunk = &child;
+                            pModifierChunk = &child;
                             break;
                         }
                         index++;
                     }
                 }
-                if (pObjectChunk == nullptr)
+                if (pModifierChunk == nullptr)
                     continue;
                 auto* pParamBlock = getLinkChunk(scene, chunk, 0);
                 if (pParamBlock == nullptr)
@@ -529,9 +529,9 @@ static void getPrimitive(int(*log)(char const*, ...), miMaxNode::Chunk const& sc
                 // ????????-7EBB4645-7BE2044B-00000810  PAINTLAYERMOD_CLASS_ID + OSM_SUPERCLASS_ID
                 switch (class64(chunk.classData.classID)) {
                 case class64(EDIT_NORMALS_CLASS_ID): {
-                    auto* pNormalChunk = getChunk(*pObjectChunk, 0x2512, 0x0240);
+                    auto* pNormalChunk = getChunk(*pModifierChunk, 0x2512, 0x0240);
                     if (pNormalChunk == nullptr)
-                        pNormalChunk = getChunk(*pObjectChunk, 0x2512, 0x0250);
+                        pNormalChunk = getChunk(*pModifierChunk, 0x2512, 0x0250);
                     if (pNormalChunk == nullptr)
                         break;
                     auto normals = getProperty<float>(*pNormalChunk, 0x0110);
@@ -545,7 +545,7 @@ static void getPrimitive(int(*log)(char const*, ...), miMaxNode::Chunk const& sc
                 }
                 case class64(PAINTLAYERMOD_CLASS_ID):
                     if (paramBlock.size() > 1) {
-                        auto* pColorChunk = getChunk(*pObjectChunk, 0x2512);
+                        auto* pColorChunk = getChunk(*pModifierChunk, 0x2512);
                         if (pColorChunk == nullptr)
                             break;
                         switch (std::get<int>(paramBlock[1])) {
